@@ -8,8 +8,11 @@ use chrono::prelude::*;
 use serde::{Serialize, Deserialize};
 use base64::encode;
 use hex::encode as hex_encode;
-use std::sync::{Arc, Mutex};
-use tauri::State;
+use std::sync::{Arc, Mutex, atomic::{AtomicBool, Ordering}};
+use std::thread;
+use std::thread::JoinHandle;
+use std::time::Duration;
+use tauri::{State, Builder};
 
 #[derive(Serialize, Deserialize)]
 struct PacketData {
@@ -25,33 +28,19 @@ struct PacketData {
 }
 
 pub struct AppState {
-    pub running: Arc<Mutex<bool>>,
-    conn: Arc<Mutex<Connection>>,
+    pub running: Arc<AtomicBool>,
+    pub conn: Arc<Mutex<Connection>>,
+    pub handle: Arc<Mutex<Option<JoinHandle<()>>>>,
 }
 
 impl Default for AppState {
     fn default() -> Self {
-        let conn = Connection::open("packet_data.db").expect("Failed to open database");
+        let conn = Connection::open("/home/rohi/packet_data.db").expect("Failed to open database");
         Self {
-            running: Arc::new(Mutex::new(false)),
+            running: Arc::new(AtomicBool::new(false)),
             conn: Arc::new(Mutex::new(conn)),
+            handle: Arc::new(Mutex::new(None)),
         }
-    }
-}
-
-impl AppState {
-    pub fn set_running(&self, value: bool) {
-        let mut running = self.running.lock().unwrap();
-        *running = value;
-    }
-
-    pub fn get_running(&self) -> bool {
-        let running = self.running.lock().unwrap();
-        *running
-    }
-
-    pub fn get_connection(&self) -> Arc<Mutex<Connection>> {
-        Arc::clone(&self.conn)
     }
 }
 
@@ -70,8 +59,8 @@ fn start_sniffer(app_state: Arc<AppState>) {
         }
     };
 
-    let conn_arc = app_state.get_connection();
-    let mut db_conn = conn_arc.lock().unwrap();
+    let conn_arc = app_state.conn.clone();
+    let db_conn = conn_arc.lock().unwrap();
 
     let now: DateTime<Utc> = Utc::now();
     let table_name = format!("packet_data_{}", now.format("%Y%m%d%H%M%S"));
@@ -96,23 +85,56 @@ fn start_sniffer(app_state: Arc<AppState>) {
 
     println!("Listening on the interface: {}", interface_name);
 
-    while app_state.get_running() {
-        if let Ok(packet) = rx.next() {
-            let ether_packet = EthernetPacket::new(packet).unwrap();
-            handle_ethernet_packets(&ether_packet, &db_conn, &table_name).expect("Failed to handle packet");
+    while app_state.running.load(Ordering::SeqCst) {
+        match rx.next() {
+            Ok(packet) => {
+                let ether_packet = EthernetPacket::new(packet).unwrap();
+                handle_ethernet_packets(&ether_packet, &db_conn, &table_name).expect("Failed to handle packet");
+            },
+            Err(_) => {
+                thread::sleep(Duration::from_millis(100)); // Small sleep to avoid busy-waiting
+            }
         }
     }
+
+    println!("Packet sniffer stopped.");
 }
 
 #[tauri::command]
 fn start_packet_sniffer(state: State<'_, Arc<AppState>>) {
-    state.set_running(true);
-    start_sniffer(Arc::clone(&state));
+    if state.running.load(Ordering::SeqCst) {
+        println!("Packet sniffer is already running.");
+        return;
+    }
+
+    state.running.store(true, Ordering::SeqCst);
+    let state_clone = state.inner().clone(); // Use the `inner` method to get the `Arc<AppState>`
+
+    let handle = thread::spawn(move || {
+        start_sniffer(state_clone);
+    });
+
+    let mut handle_lock = state.handle.lock().unwrap();
+    *handle_lock = Some(handle);
+
+    println!("Packet sniffer started.");
 }
 
 #[tauri::command]
 fn stop_packet_sniffer(state: State<'_, Arc<AppState>>) {
-    state.set_running(false);
+    if !state.running.load(Ordering::SeqCst) {
+        println!("Packet sniffer is not running.");
+        return;
+    }
+
+    println!("Stopping packet sniffer...");
+    state.running.store(false, Ordering::SeqCst);
+
+    if let Some(handle) = state.handle.lock().unwrap().take() {
+        handle.join().unwrap();
+    }
+
+    println!("Packet sniffer stopped.");
 }
 
 fn handle_ethernet_packets(packet: &EthernetPacket, conn: &Connection, table_name: &str) -> Result<(), Box<dyn std::error::Error>> {
@@ -211,9 +233,8 @@ fn handle_ipv6_packets(packet: &Ipv6Packet, conn: &Connection, table_name: &str,
 }
 
 fn main() {
-    let app_state = Arc::new(AppState::default());
-    tauri::Builder::default()
-        .manage(app_state)
+    Builder::default()
+        .manage(Arc::new(AppState::default()))
         .invoke_handler(tauri::generate_handler![start_packet_sniffer, stop_packet_sniffer])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
