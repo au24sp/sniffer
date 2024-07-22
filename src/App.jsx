@@ -8,35 +8,48 @@ function App() {
   const [tableNames, setTableNames] = useState([]);
   const [selectedTable, setSelectedTable] = useState('');
   const [tableData, setTableData] = useState([]);
-  const [interfaces, setInterface] = useState([]);
+  const [interfaces, setInterfaces] = useState([]);
+  const [selectedInterface, setSelectedInterface] = useState('');
 
   useEffect(() => {
     if (currentPage === 'table') {
       loadTableNames();
-      // listInterface()
     }
     if (currentPage === 'sniffer') {
-      listInterface();
+      listInterfaces();
     }
   }, [currentPage]);
 
   const startSniffer = async () => {
-    await invoke('start_packet_sniffer');
-    setIsRunning(true);
+    if (selectedInterface) {
+      try {
+        await invoke('start_packet_sniffer', { interface: selectedInterface });
+        setIsRunning(true);
+      } catch (error) {
+        console.error('Error starting sniffer:', error);
+      }
+    } else {
+      alert('Please select an interface before starting the sniffer.');
+    }
   };
 
-  const listInterface = async () => {
+  const listInterfaces = async () => {
     try {
       const res = await invoke('list_interfacce');
-      setInterface(res);
+      setInterfaces(res);
     } catch (error) {
-      setInterface([])
+      setInterfaces([]);
+      console.error('Error listing interfaces:', error);
     }
-  }
+  };
 
   const stopSniffer = async () => {
-    await invoke('stop_packet_sniffer');
-    setIsRunning(false);
+    try {
+      await invoke('stop_packet_sniffer');
+      setIsRunning(false);
+    } catch (error) {
+      console.error('Error stopping sniffer:', error);
+    }
   };
 
   const loadTableNames = async () => {
@@ -86,12 +99,26 @@ function App() {
         {currentPage === 'sniffer' && (
           <div className="text-center">
             <h1 className="text-2xl font-bold mb-4">Packet Sniffer</h1>
-            
-            {/* {interfaces.map((name) => (
-                  <option key={name} value={name}>
-                    {name}
-                  </option>
-            ))} */}
+
+            <div className="mb-4">
+              <select
+                onChange={(e) => setSelectedInterface(e.target.value)}
+                value={selectedInterface}
+                className="px-4 py-2 border rounded"
+              >
+                <option value="">Select Interface</option>
+                {interfaces.length > 0 ? (
+                  interfaces.map((iface) => (
+                    <option key={iface.name} value={iface.name}>
+                      {iface.name}
+                    </option>
+                  ))
+                ) : (
+                  <option disabled>No interfaces available</option>
+                )}
+              </select>
+            </div>
+
             <button
               onClick={startSniffer}
               className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-500"
@@ -122,11 +149,15 @@ function App() {
                 className="px-4 py-2 border rounded"
               >
                 <option value="">Select Table</option>
-                {tableNames.map((name) => (
-                  <option key={name} value={name}>
-                    {name}
-                  </option>
-                ))}
+                {tableNames.length > 0 ? (
+                  tableNames.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))
+                ) : (
+                  <option disabled>No tables available</option>
+                )}
               </select>
               <button
                 onClick={fetchTableData}
@@ -137,7 +168,7 @@ function App() {
               </button>
             </div>
             <div className="mt-4">
-              {tableData.length > 0 && (
+              {tableData.length > 0 ? (
                 <table className="min-w-full bg-white border border-gray-200">
                   <thead>
                     <tr>
@@ -158,16 +189,13 @@ function App() {
                     ))}
                   </tbody>
                 </table>
+              ) : (
+                <p>No data available</p>
               )}
             </div>
           </div>
         )}
       </main>
-      <ul>
-        {tableData.map((item, index) => (
-          <li key={index}>{item.source}</li>
-        ))}
-      </ul>
     </div>
   );
 }

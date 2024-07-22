@@ -45,9 +45,9 @@ impl Default for AppState {
     }
 }
 
-fn start_sniffer(app_state: Arc<AppState>) {
+fn start_sniffer(app_state: Arc<AppState>,interface : String) {
     let interfaces = datalink::interfaces();
-    let interface_name = "lo"; // Set your interface name here
+    let interface_name = interface.clone(); // Set your interface name here
     let interface = interfaces.iter().find(|iface| iface.name == interface_name)
         .expect("Interface not found");
 
@@ -59,6 +59,8 @@ fn start_sniffer(app_state: Arc<AppState>) {
             return;
         }
     };
+
+    println!("{:?}",interface);
 
     let conn_arc = app_state.conn.clone();
     let db_conn = conn_arc.lock().unwrap();
@@ -102,7 +104,7 @@ fn start_sniffer(app_state: Arc<AppState>) {
 }
 
 #[tauri::command]
-fn start_packet_sniffer(state: State<'_, Arc<AppState>>) {
+fn start_packet_sniffer(state: State<'_, Arc<AppState>>,interface : String) {
     if state.running.load(Ordering::SeqCst) {
         println!("Packet sniffer is already running.");
         return;
@@ -110,15 +112,16 @@ fn start_packet_sniffer(state: State<'_, Arc<AppState>>) {
 
     state.running.store(true, Ordering::SeqCst);
     let state_clone = state.inner().clone(); // Use the `inner` method to get the `Arc<AppState>`
+    let interface = interface.replace('"', "");
+    println!("Packet sniffer started. {}",&interface);
 
     let handle = thread::spawn(move || {
-        start_sniffer(state_clone);
+        start_sniffer(state_clone, interface);
     });
 
     let mut handle_lock = state.handle.lock().unwrap();
     *handle_lock = Some(handle);
 
-    println!("Packet sniffer started.");
 }
 
 #[tauri::command]
