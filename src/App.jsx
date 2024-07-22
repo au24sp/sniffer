@@ -8,10 +8,15 @@ function App() {
   const [tableNames, setTableNames] = useState([]);
   const [selectedTable, setSelectedTable] = useState('');
   const [tableData, setTableData] = useState([]);
+  const [interfaces, setInterface] = useState([]);
 
   useEffect(() => {
     if (currentPage === 'table') {
       loadTableNames();
+      // listInterface()
+    }
+    if (currentPage === 'sniffer') {
+      listInterface();
     }
   }, [currentPage]);
 
@@ -20,6 +25,15 @@ function App() {
     setIsRunning(true);
   };
 
+  const listInterface = async () => {
+    try {
+      const res = await invoke('list_interfacce');
+      setInterface(res);
+    } catch (error) {
+      setInterface([])
+    }
+  }
+
   const stopSniffer = async () => {
     await invoke('stop_packet_sniffer');
     setIsRunning(false);
@@ -27,7 +41,7 @@ function App() {
 
   const loadTableNames = async () => {
     try {
-      const names = await invoke('get_table_names');
+      const names = await invoke('list_names');
       setTableNames(names);
     } catch (error) {
       console.error('Error loading table names:', error);
@@ -72,6 +86,12 @@ function App() {
         {currentPage === 'sniffer' && (
           <div className="text-center">
             <h1 className="text-2xl font-bold mb-4">Packet Sniffer</h1>
+            
+            {/* {interfaces.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+            ))} */}
             <button
               onClick={startSniffer}
               className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-500"
@@ -143,6 +163,11 @@ function App() {
           </div>
         )}
       </main>
+      <ul>
+        {tableData.map((item, index) => (
+          <li key={index}>{item.source}</li>
+        ))}
+      </ul>
     </div>
   );
 }

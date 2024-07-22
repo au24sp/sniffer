@@ -1,3 +1,4 @@
+use pnet::datalink::NetworkInterface;
 use pnet::datalink::{self, Channel::Ethernet};
 use pnet::packet::{Packet};
 use pnet::packet::ethernet::{EthernetPacket};
@@ -137,6 +138,72 @@ fn stop_packet_sniffer(state: State<'_, Arc<AppState>>) {
     println!("Packet sniffer stopped.");
 }
 
+#[tauri::command]
+fn list_names()->Vec<String> {
+    let con = Connection::open("/home/rohi/packet_data.db").expect("err in line 142");
+    let mut smt = con.prepare("SELECT name FROM sqlite_master WHERE type='table'").expect("err in table queryiong");
+    let res_iter = smt.query_map([], |row|{
+        row.get(0)
+    }).unwrap();
+    let mut res: Vec<_> = Vec::new();
+    for i in res_iter {
+        res.push(i.unwrap());
+    }
+    res
+}
+
+#[tauri::command]
+fn get_table_data(table: &str) -> Vec<PacketData> {
+    let conn = Connection::open("/home/rohi/packet_data.db").unwrap();
+    let mut fromat_smt = format!("select * from {}",table);
+    let mut smt = conn.prepare(&fromat_smt).unwrap();
+    let result_iter = smt.query_map([], |row|{
+        Ok(PacketData{
+            // id                : row.get(0).unwrap(),
+            timestamp         : row.get(1).unwrap(),
+            packet_type       : row.get(2).unwrap(),
+            source            : row.get(3).unwrap(),
+            destination       : row.get(4).unwrap(),
+            protocol          : row.get(5).unwrap(),
+            payload_base64    : row.get(6).unwrap(),
+            payload_hex       : row.get(7).unwrap(),
+            payload_raw       : row.get(8).unwrap(),
+          payload_string      : row.get(9).unwrap(),
+        })
+    }).unwrap();
+    let mut res = Vec::new();
+    for i in result_iter {
+        res.push(i.unwrap());
+    }
+    res
+
+}
+
+#[derive(Debug,Serialize,Deserialize)]
+struct NetInterface {
+    name : String,
+    mac  : String,
+    ipv4 : String
+}
+
+#[tauri::command]
+fn list_interfacce() -> Vec<NetInterface> {
+    let interface = datalink::interfaces();
+    let mut res:Vec<NetInterface> = Vec::new();
+    for _tmp_interfaces in interface.iter() {
+        let _ipv4 = _tmp_interfaces.ips.get(0).map(|ip| ip.ip().to_string()).unwrap_or_else(|| "N/A".to_string());
+        println!("| {:<14} |  {:<3}  | {:<16} | {:<14} |",_tmp_interfaces.name,_tmp_interfaces.index, _tmp_interfaces.mac.unwrap(),_ipv4 );
+        let mut tmp_strt = NetInterface {
+            name : format!("{:?}",_tmp_interfaces.name),
+            mac  : format!("{:?}",_tmp_interfaces.mac),
+            ipv4 : _ipv4
+        };
+        res.push(tmp_strt);
+    }
+    res
+}
+
+
 fn handle_ethernet_packets(packet: &EthernetPacket, conn: &Connection, table_name: &str) -> Result<(), Box<dyn std::error::Error>> {
     let now: DateTime<Utc> = Utc::now();
     let timestamp = now.to_rfc3339();
@@ -235,7 +302,7 @@ fn handle_ipv6_packets(packet: &Ipv6Packet, conn: &Connection, table_name: &str,
 fn main() {
     Builder::default()
         .manage(Arc::new(AppState::default()))
-        .invoke_handler(tauri::generate_handler![start_packet_sniffer, stop_packet_sniffer])
+        .invoke_handler(tauri::generate_handler![start_packet_sniffer, stop_packet_sniffer,list_names,list_interfacce,get_table_data])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
