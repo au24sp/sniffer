@@ -1,6 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/tauri';
 import './App.css';
+import './index.css';
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+
 
 function App() {
   const [currentPage, setCurrentPage] = useState('sniffer');
@@ -73,6 +84,28 @@ function App() {
   };
 
   return (
+    <>
+    
+    <Table>
+  <TableCaption>A list of your recent invoices.</TableCaption>
+  <TableHeader>
+    <TableRow>
+      <TableHead className="w-[20px] flex justify-between items-center">Invoice</TableHead>
+      <TableHead>Status</TableHead>
+      <TableHead>Method</TableHead>
+      <TableHead className="text-right">Amount</TableHead>
+    </TableRow>
+  </TableHeader>
+  <TableBody>
+    <TableRow>
+      <TableCell className="font-medium">INV001</TableCell>
+      <TableCell>Paid</TableCell>
+      <TableCell>Credit Card</TableCell>
+      <TableCell className="text-right">$250.00</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
     <div className="App min-h-screen bg-gray-100 flex flex-col">
       <nav className="bg-gray-800 p-4 text-white flex justify-between items-center">
         <div>
@@ -126,9 +159,9 @@ function App() {
             >
               Start Sniffer
             </button>
-            <button
+            <button 
               onClick={stopSniffer}
-              className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-500 ml-4"
+              className="px-4 py-2 bg-red-600 text-blue-500 rounded hover:bg-red-500 ml-4"
               disabled={!isRunning}
             >
               Stop Sniffer
@@ -197,6 +230,7 @@ function App() {
         )}
       </main>
     </div>
+    </>
   );
 }
 
