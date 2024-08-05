@@ -9,11 +9,13 @@ use chrono::prelude::*;
 use serde::{Serialize, Deserialize};
 use base64::encode;
 use hex::encode as hex_encode;
+use tauri::http::Request;
 use std::sync::{Arc, Mutex, atomic::{AtomicBool, Ordering}};
 use std::thread;
 use std::thread::JoinHandle;
 use std::time::Duration;
 use tauri::{State, Builder};
+use reqwest::Client;
 
 #[derive(Serialize, Deserialize)]
 struct PacketData {
@@ -182,6 +184,15 @@ fn get_table_data(table: &str) -> Vec<PacketData> {
 
 }
 
+#[tauri::command]
+async fn handle_ollama() {
+    let end_point = String::from("http://localhost:11434/api/generate");
+    let client = reqwest::Client::new();
+
+    let req = Request::new("");
+    
+}
+
 #[derive(Debug,Serialize,Deserialize)]
 struct NetInterface {
     name : String,
@@ -302,6 +313,7 @@ fn handle_ipv6_packets(packet: &Ipv6Packet, conn: &Connection, table_name: &str,
     Ok(())
 }
 
+#[tokio::main]
 fn main() {
     Builder::default()
         .manage(Arc::new(AppState::default()))
