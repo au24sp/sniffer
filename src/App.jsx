@@ -11,14 +11,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+
+import Pagination from "./components/pagination";
 
 function App() {
   const [currentPage, setCurrentPage] = useState("sniffer");
@@ -191,30 +185,7 @@ function App() {
                 </button>
               </div>
               <div className="mt-4">
-                {tableData.length > 0 ? (
-                  <table className="min-w-full bg-white border border-gray-200">
-                    <thead>
-                      <tr>
-                        {Object.keys(tableData[0]).map((key) => (
-                          <th key={key} className="px-4 py-2 border-b">
-                            {key}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {tableData.map((row, index) => (
-                        <tr key={index}>
-                          {Object.values(row).map((value, i) => (
-                            <PrettyTableRow key={i} value={value} index={i} />
-                          ))}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                ) : (
-                  <p>No data available</p>
-                )}
+                {tableData && <Pagination tableData={tableData} />}
               </div>
             </div>
           )}
@@ -225,76 +196,3 @@ function App() {
 }
 
 export default App;
-
-const PrettyTableRow = ({ value, index }) => {
-  return (
-    <>
-      {typeof value === "object" ? (
-        <td key={index} className="px-4 py-2 border-b">
-          {retractObject(value)}
-        </td>
-      ) : typeof value === "string" ? (
-        <td key={index} className="px-4 py-2 border-b">
-          {retractString(value)}
-        </td>
-      ) : (
-        value
-      )}
-    </>
-  );
-};
-
-const retractString = (str) => {
-  if (str.length > 15) {
-    return (
-      <>
-        {`${str.substring(0, 10)}...${str.substring(str.length - 5)}`}
-        <ExpandDialog value={str} />
-      </>
-    );
-  }
-  return str;
-};
-
-const retractObject = (object) => {
-  const keys = Object.keys(object);
-  if (keys.length > 7) {
-    const firstFiveKeys = keys.slice(0, 5);
-    const lastTwoKeys = keys.slice(-2);
-    const newObj = firstFiveKeys.reduce(
-      (acc, key) => ({ ...acc, [key]: object[key] }),
-      {}
-    );
-    newObj["..."] = "...";
-    lastTwoKeys.forEach((key) => (newObj[key] = object[key]));
-    return (
-      <>
-        {JSON.stringify(newObj, null, 2)}
-        <ExpandDialog value={JSON.stringify(object, null, 2)} />
-      </>
-    );
-  }
-  return JSON.stringify(object, null, 2);
-};
-
-const ExpandDialog = ({ value }) => {
-  return (
-    <>
-      <Dialog>
-        <DialogTrigger>Open</DialogTrigger>
-        <DialogContent className="h-64 flex justify-center items-center overflow-auto">
-          <pre
-            style={{
-              whiteSpace: "pre-wrap",
-              wordWrap: "break-word",
-              overflowX: "auto",
-              maxHeight: "100%",
-            }}
-          >
-            {value}
-          </pre>
-        </DialogContent>
-      </Dialog>
-    </>
-  );
-};
