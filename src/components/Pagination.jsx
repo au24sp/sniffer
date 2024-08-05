@@ -114,12 +114,14 @@ const ExpandDialog = ({ value, type }) => {
   return (
     <>
       <Dialog>
-        <DialogTrigger>
-          {type == "object"
-            ? retractObject(value)
-            : type == "string"
-              ? retractString(value)
-              : "Null type"}
+        <DialogTrigger asChilds>
+          <Button className="rounded-sm bg-white text-black hover:bg-gray-300 hover:border-black">
+            {type == "object"
+              ? retractObject(value)
+              : type == "string"
+                ? retractString(value)
+                : "Null type"}
+          </Button>
         </DialogTrigger>
         <DialogContent className="h-64 flex justify-center items-center overflow-auto">
           <pre
