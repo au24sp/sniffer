@@ -85,7 +85,6 @@ function App() {
   };
 
   return (
-    <>
       <div className="App min-h-screen bg-gray-100 flex flex-col">
         <nav className="bg-gray-800 p-4 text-white flex justify-between items-center">
           <div>
@@ -112,7 +111,7 @@ function App() {
           </div>
         </nav>
 
-        <main className="flex-grow p-4">
+      <main className="flex-grow p-4 overflow-x-auto">
           {currentPage === "sniffer" && (
             <div className="text-center">
               <h1 className="text-2xl font-bold mb-4">Packet Sniffer</h1>
@@ -154,8 +153,8 @@ function App() {
           )}
 
           {currentPage === "table" && (
-            <div>
-              <h1 className="text-2xl font-bold mb-4">Table View</h1>
+          <div>
+            <h1 className="text-2xl font-bold mb-4">Table View</h1>
               <div className="mb-4">
                 <select
                   onChange={(e) => {
@@ -191,7 +190,6 @@ function App() {
           )}
         </main>
       </div>
-    </>
   );
 }
 
