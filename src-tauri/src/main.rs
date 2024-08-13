@@ -38,9 +38,11 @@ pub struct AppState {
     pub handle: Arc<Mutex<Option<JoinHandle<()>>>>,
 }
 
+const rohith_url:&str = "/home/rohi/packet_data.db";
+
 impl Default for AppState {
     fn default() -> Self {
-        let conn = Connection::open("/Users/Rishikumar/packet_data.db").expect("Failed to open database");
+        let conn = Connection::open(rohith_url).expect("Failed to open database");
         Self {
             running: Arc::new(AtomicBool::new(false)),
             conn: Arc::new(Mutex::new(conn)),
@@ -147,7 +149,7 @@ fn stop_packet_sniffer(state: State<'_, Arc<AppState>>) {
 
 #[tauri::command]
 fn list_names()->Vec<String> {
-    let con = Connection::open("/Users/Rishikumar/packet_data.db").expect("err in line 142");
+    let con = Connection::open(rohith_url).expect("err in line 142");
     let mut smt = con.prepare("SELECT name FROM sqlite_master WHERE type='table'").expect("err in table queryiong");
     let res_iter = smt.query_map([], |row|{
         row.get(0)
@@ -161,7 +163,7 @@ fn list_names()->Vec<String> {
 
 #[tauri::command]
 fn get_table_data(table: &str) -> Vec<PacketData> {
-    let conn = Connection::open("/Users/Rishikumar/packet_data.db").unwrap();
+    let conn = Connection::open(rohith_url).unwrap();
     let mut fromat_smt = format!("select * from {}",table);
     let mut smt = conn.prepare(&fromat_smt).unwrap();
     let result_iter = smt.query_map([], |row|{
