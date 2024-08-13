@@ -2870,12 +2870,14 @@ dependencies = [
  "chrono",
  "hex",
  "pnet",
+ "reqwest",
  "rusqlite",
  "serde",
  "serde_json",
  "snif",
  "tauri",
  "tauri-build",
+ "tokio",
 ]
 
 [[package]]

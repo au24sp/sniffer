@@ -1,3 +1,4 @@
+extern crate tokio;
 use pnet::datalink::NetworkInterface;
 use pnet::datalink::{self, Channel::Ethernet};
 use pnet::packet::{Packet};
@@ -9,6 +10,7 @@ use chrono::prelude::*;
 use serde::{Serialize, Deserialize};
 use base64::encode;
 use hex::encode as hex_encode;
+use serde_json::json;
 use tauri::http::Request;
 use std::sync::{Arc, Mutex, atomic::{AtomicBool, Ordering}};
 use std::thread;
@@ -185,12 +187,26 @@ fn get_table_data(table: &str) -> Vec<PacketData> {
 }
 
 #[tauri::command]
-async fn handle_ollama() {
-    let end_point = String::from("http://localhost:11434/api/generate");
-    let client = reqwest::Client::new();
+async fn handle_ollama() -> Result<serde_json::Value, String> {
+    let client = Client::new();
+    let api_url = "http://localhost:11434/api/generate";
+    let response = client.post(api_url)
+        .json(&json!({
+            "model": "llama3.1",
+            "prompt": "gimme a note on post docterate fellowship",
+            "stream": false
+        }))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
 
-    let req = Request::new("");
-    
+    let response_text = response.text().await.map_err(|e| e.to_string())?;
+
+    println!("Response: {}", response_text);
+    // Return the response as a JSON object
+    Ok(json!({
+        "response": response_text
+    }))
 }
 
 #[derive(Debug,Serialize,Deserialize)]
@@ -314,10 +330,10 @@ fn handle_ipv6_packets(packet: &Ipv6Packet, conn: &Connection, table_name: &str,
 }
 
 #[tokio::main]
-fn main() {
+async fn main() {
     Builder::default()
         .manage(Arc::new(AppState::default()))
-        .invoke_handler(tauri::generate_handler![start_packet_sniffer, stop_packet_sniffer,list_names,list_interfacce,get_table_data])
+        .invoke_handler(tauri::generate_handler![start_packet_sniffer, handle_ollama,stop_packet_sniffer,list_names,list_interfacce,get_table_data])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
