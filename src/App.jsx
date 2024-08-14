@@ -11,10 +11,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-
+import { Button } from "./components/ui/button";
 import Pagination from "./components/Pagination";
+import { Bargraph } from "./components/Bargraph";
+import { Lineargraph } from "./components/lineargraph";
 
 function App() {
+  const [activeComponent, setActiveComponent] = useState("bargraph");
   const [currentPage, setCurrentPage] = useState("sniffer");
   const [isRunning, setIsRunning] = useState(false);
   const [tableNames, setTableNames] = useState([]);
@@ -29,6 +32,8 @@ function App() {
     }
     if (currentPage === "sniffer") {
       listInterfaces();
+    }
+    if (currentPage === "analysis") {
     }
   }, [currentPage]);
 
@@ -85,112 +90,148 @@ function App() {
   };
 
   return (
-      <div className="App min-h-screen bg-gray-100 flex flex-col">
-        <nav className="bg-gray-800 p-4 text-white flex justify-between items-center">
-          <div>
+    <div className="App min-h-screen bg-gray-100 flex flex-col">
+      <nav className="bg-gray-800 p-4 text-white flex justify-between items-center">
+        <div>
+          <button
+            onClick={() => setCurrentPage("sniffer")}
+            className={`px-4 py-2 rounded ${
+              currentPage === "sniffer"
+                ? "bg-gray-700"
+                : "bg-gray-600 hover:bg-gray-500"
+            }`}
+          >
+            Packet Sniffer
+          </button>
+          <button
+            onClick={() => setCurrentPage("table")}
+            className={`px-4 py-2 rounded ml-4 ${
+              currentPage === "table"
+                ? "bg-gray-700"
+                : "bg-gray-600 hover:bg-gray-500"
+            }`}
+          >
+            Table View
+          </button>
+          <button
+            onClick={() => setCurrentPage("analysis")}
+            className={`px-4 py-2 rounded ml-4 ${
+              currentPage === "table"
+                ? "bg-gray-700"
+                : "bg-gray-600 hover:bg-gray-500"
+            }`}
+          >
+            Analysis
+          </button>
+        </div>
+      </nav>
+
+      <main className="flex-grow p-4 overflow-auto">
+        {currentPage === "sniffer" && (
+          <div className="text-center">
+            <h1 className="text-2xl font-bold mb-4">Packet Sniffer</h1>
+
+            <div className="mb-4">
+              <select
+                onChange={(e) => setSelectedInterface(e.target.value)}
+                value={selectedInterface}
+                className="px-4 py-2 border rounded"
+              >
+                <option value="">Select Interface</option>
+                {interfaces.length > 0 ? (
+                  interfaces.map((iface) => (
+                    <option key={iface.name} value={iface.name}>
+                      {iface.name}
+                    </option>
+                  ))
+                ) : (
+                  <option disabled>No interfaces available</option>
+                )}
+              </select>
+            </div>
+
             <button
-              onClick={() => setCurrentPage("sniffer")}
-              className={`px-4 py-2 rounded ${
-                currentPage === "sniffer"
-                  ? "bg-gray-700"
-                  : "bg-gray-600 hover:bg-gray-500"
-              }`}
+              onClick={startSniffer}
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-500"
+              disabled={isRunning}
             >
-              Packet Sniffer
+              Start Sniffer
             </button>
             <button
-              onClick={() => setCurrentPage("table")}
-              className={`px-4 py-2 rounded ml-4 ${
-                currentPage === "table"
-                  ? "bg-gray-700"
-                  : "bg-gray-600 hover:bg-gray-500"
-              }`}
+              onClick={stopSniffer}
+              className="px-4 py-2 bg-red-600 text-blue-500 rounded hover:bg-red-500 ml-4"
+              disabled={!isRunning}
             >
-              Table View
+              Stop Sniffer
             </button>
           </div>
-        </nav>
+        )}
 
-        <main className="flex-grow p-4 overflow-auto">
-          {currentPage === "sniffer" && (
-            <div className="text-center">
-              <h1 className="text-2xl font-bold mb-4">Packet Sniffer</h1>
-
-              <div className="mb-4">
-                <select
-                  onChange={(e) => setSelectedInterface(e.target.value)}
-                  value={selectedInterface}
-                  className="px-4 py-2 border rounded"
-                >
-                  <option value="">Select Interface</option>
-                  {interfaces.length > 0 ? (
-                    interfaces.map((iface) => (
-                      <option key={iface.name} value={iface.name}>
-                        {iface.name}
-                      </option>
-                    ))
-                  ) : (
-                    <option disabled>No interfaces available</option>
-                  )}
-                </select>
-              </div>
-
-              <button
-                onClick={startSniffer}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-500"
-                disabled={isRunning}
+        {currentPage === "table" && (
+          <div>
+            <h1 className="text-2xl font-bold mb-4">Table View</h1>
+            <div className="mb-4">
+              <select
+                onChange={(e) => {
+                  setSelectedTable(e.target.value);
+                  setTableData([]); // Clear previous data
+                }}
+                value={selectedTable}
+                className="px-4 py-2 border rounded"
               >
-                Start Sniffer
-              </button>
+                <option value="">Select Table</option>
+                {tableNames.length > 0 ? (
+                  tableNames.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))
+                ) : (
+                  <option disabled>No tables available</option>
+                )}
+              </select>
               <button
-                onClick={stopSniffer}
-                className="px-4 py-2 bg-red-600 text-blue-500 rounded hover:bg-red-500 ml-4"
-                disabled={!isRunning}
+                onClick={fetchTableData}
+                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-500 ml-4"
+                disabled={!selectedTable}
               >
-                Stop Sniffer
+                Load Table Data
               </button>
             </div>
-          )}
-
-          {currentPage === "table" && (
-            <div>
-              <h1 className="text-2xl font-bold mb-4">Table View</h1>
-              <div className="mb-4">
-                <select
-                  onChange={(e) => {
-                    setSelectedTable(e.target.value);
-                    setTableData([]); // Clear previous data
-                  }}
-                  value={selectedTable}
-                  className="px-4 py-2 border rounded"
-                >
-                  <option value="">Select Table</option>
-                  {tableNames.length > 0 ? (
-                    tableNames.map((name) => (
-                      <option key={name} value={name}>
-                        {name}
-                      </option>
-                    ))
-                  ) : (
-                    <option disabled>No tables available</option>
-                  )}
-                </select>
-                <button
-                  onClick={fetchTableData}
-                  className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-500 ml-4"
-                  disabled={!selectedTable}
-                >
-                  Load Table Data
-                </button>
-              </div>
-              <div className="mt-4">
-                {tableData && <Pagination tableData={tableData} />}
-              </div>
+            <div className="mt-4">
+              {tableData && <Pagination tableData={tableData} />}
             </div>
-          )}
-        </main>
-      </div>
+          </div>
+        )}
+        {currentPage === "analysis" && (
+          <div>
+            <h1 className="text-2xl font-bold">Analysis</h1>
+            <div className="flex gap-7">
+              <Button
+                onClick={() => setActiveComponent("bargraph")}
+                disabled={activeComponent === "bargraph"}
+              >
+                Show Bargraph
+              </Button>
 
+              <Button
+                onClick={() => setActiveComponent("lineargraph")}
+                disabled={activeComponent === "lineargraph"}
+              >
+                Show Lineargraph
+              </Button>
+            </div>
+
+            <div className="scale-[0.90]">
+              {activeComponent === "bargraph" && <Bargraph />}
+            </div>
+            <div className="mt-[10%]">
+              {activeComponent === "lineargraph" && <Lineargraph />}
+            </div>
+          </div>
+        )}
+      </main>
+    </div>
   );
 }
 
