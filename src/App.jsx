@@ -14,6 +14,7 @@ import {
 import { Button } from "./components/ui/button";
 import Pagination from "./components/Pagination";
 import { Bargraph } from "./components/Bargraph";
+import { Piechart } from "./components/Piechart";
 import { Lineargraph } from "./components/lineargraph";
 
 function App() {
@@ -220,13 +221,23 @@ function App() {
               >
                 Show Lineargraph
               </Button>
+
+              <Button onClick={() => setActiveComponent("piechart")}
+                disabled={activeComponent === "piechart"}>
+                Show Piechart
+              </Button>
             </div>
 
             <div className="scale-[0.90]">
               {activeComponent === "bargraph" && <Bargraph />}
             </div>
+            
             <div className="mt-[10%]">
               {activeComponent === "lineargraph" && <Lineargraph />}
+            </div>
+
+            <div className="mt-[10%]">
+              {activeComponent === "piechart" && <Piechart />}
             </div>
           </div>
         )}

@@ -1,6 +1,6 @@
 import * as React from "react";
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
-
+import { invoke } from "@tauri-apps/api/tauri";
 import {
   Card,
   CardContent,
@@ -13,17 +13,18 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
+
 const chartData = [
-  { timeStamp: "11:20:19", traffic: 222, mobile: 150 },
-  { timeStamp: "11:20:20", traffic: 97, mobile: 180 },
-  { timeStamp: "11:20:21", traffic: 167, mobile: 120 },
-  { timeStamp: "11:20:22", traffic: 245, mobile: 180 },
-  { timeStamp: "11:20:22", traffic: 409, mobile: 320 },
-  { timeStamp: "11:20:22", traffic: 59, mobile: 110 },
-  { timeStamp: "11:20:22", traffic: 261, mobile: 190 },
-  { timeStamp: "11:20:23", traffic: 301, mobile: 340 },
-  { timeStamp: "11:20:24", traffic: 242, mobile: 260 },
-  { timeStamp: "11:20:25", traffic: 373, mobile: 290 },
+  { timeStamp: "11:20:19", traffic: 222 },
+  { timeStamp: "11:20:20", traffic: 97 },
+  { timeStamp: "11:20:21", traffic: 167 },
+  { timeStamp: "11:20:22", traffic: 245 },
+  { timeStamp: "11:20:22", traffic: 409 },
+  { timeStamp: "11:20:22", traffic: 59 },
+  { timeStamp: "11:20:22", traffic: 261 },
+  { timeStamp: "11:20:23", traffic: 301 },
+  { timeStamp: "11:20:24", traffic: 242 },
+  { timeStamp: "11:20:25", traffic: 373 },
 ];
 
 const chartConfig = {
@@ -42,6 +43,18 @@ const chartConfig = {
 
 export function Lineargraph() {
   const [activeChart, setActiveChart] = React.useState("traffic");
+  // const [chartData, setChartData] = React.useState([]);
+
+  // const getBarGraphData = async () => {
+  //   try{
+  //     const res = await invoke("get_ip_stat");
+  //     setChartData(res)
+  //   }
+  //   catch(err){
+  //     setChartData([]);
+  //     console.log(err);
+  //   }
+  // }
 
   const total = React.useMemo(
     () => ({
