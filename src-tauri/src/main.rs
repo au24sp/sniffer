@@ -18,6 +18,13 @@ use std::thread::JoinHandle;
 use std::time::Duration;
 use tauri::{State, Builder};
 use reqwest::Client;
+use std::collections::HashMap;
+use std::path::Path;
+use std::fs;
+use std::env;
+use std::path::PathBuf;
+
+
 
 #[derive(Serialize, Deserialize)]
 struct PacketData {
@@ -32,6 +39,12 @@ struct PacketData {
     payload_string: String,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+struct IpStats {
+    source_count: u32,
+    destination_count: u32,
+}
+
 pub struct AppState {
     pub running: Arc<AtomicBool>,
     pub conn: Arc<Mutex<Connection>>,
@@ -40,10 +53,11 @@ pub struct AppState {
 
 const rohith_url:&str = "/home/rohi/packet_data.db";
 const rishi_url:&str = "/Users/Rishikumar/packet_data.db";
+const abhi_url:&str = "/home/abhi/Documents/summerproj/packet_data.db";
 
 impl Default for AppState {
     fn default() -> Self {
-        let conn = Connection::open(rishi_url).expect("Failed to open database");
+        let conn = Connection::open(abhi_url).expect("Failed to open database");
         Self {
             running: Arc::new(AtomicBool::new(false)),
             conn: Arc::new(Mutex::new(conn)),
@@ -150,7 +164,7 @@ fn stop_packet_sniffer(state: State<'_, Arc<AppState>>) {
 
 #[tauri::command]
 fn list_names()->Vec<String> {
-    let con = Connection::open(rishi_url).expect("err in line 142");
+    let con = Connection::open(abhi_url).expect("err in line 142");
     let mut smt = con.prepare("SELECT name FROM sqlite_master WHERE type='table'").expect("err in table queryiong");
     let res_iter = smt.query_map([], |row|{
         row.get(0)
@@ -164,7 +178,7 @@ fn list_names()->Vec<String> {
 
 #[tauri::command]
 fn get_table_data(table: &str) -> Vec<PacketData> {
-    let conn = Connection::open(rishi_url).unwrap();
+    let conn = Connection::open(abhi_url).unwrap();
     let mut fromat_smt = format!("select * from {}",table);
     let mut smt = conn.prepare(&fromat_smt).unwrap();
     let result_iter = smt.query_map([], |row|{
@@ -332,11 +346,116 @@ fn handle_ipv6_packets(packet: &Ipv6Packet, conn: &Connection, table_name: &str,
     Ok(())
 }
 
+fn query_ip_stats(conn: &Connection, table_name: &str) -> Result<HashMap<String, IpStats>, rusqlite::Error> {
+    let mut ip_map: HashMap<String, IpStats> = HashMap::new();
+    let query = format!("SELECT source, destination FROM {}", table_name);
+    let mut stmt = conn.prepare(&query)?;
+
+    let packet_iter = stmt.query_map([], |row| {
+        let source: String = row.get(0)?;
+        let destination: String = row.get(1)?;
+        Ok((source, destination))
+    })?;
+
+    for packet in packet_iter {
+        let (source, destination) = packet?;
+
+        let entry = ip_map.entry(source.clone()).or_insert(IpStats {
+            source_count: 0,
+            destination_count: 0,
+        });
+        entry.source_count += 1;
+
+        let entry = ip_map.entry(destination.clone()).or_insert(IpStats {
+            source_count: 0,
+            destination_count: 0,
+        });
+        entry.destination_count += 1;
+    }
+
+    Ok(ip_map)
+}
+
+fn query_packet_per_second(conn: &Connection, table_name: &str) -> Result<HashMap<String, u32>, rusqlite::Error> {
+    let mut packet_count: HashMap<String, u32> = HashMap::new();
+    let query = format!("SELECT timestamp FROM {}", table_name);
+    let mut stmt = conn.prepare(&query)?;
+
+    let packet_iter = stmt.query_map([], |row| {
+        let timestamp: String = row.get(0)?;
+        Ok(timestamp)
+    })?;
+
+    for packet in packet_iter {
+        let timestamp = packet?;
+        let time_part = timestamp.split('T').nth(1).unwrap_or(&timestamp);
+        let formatted_time = time_part.split('.').next().unwrap_or(&time_part);
+
+        let count = packet_count.entry(formatted_time.to_string()).or_insert(0);
+        *count += 1;
+    }
+
+    Ok(packet_count)
+}
+
+
+#[tauri::command]
+fn output_ip_stats_command(table_name: &str, output_file: &str) -> Result<String, String> {
+    let conn = Connection::open(abhi_url).unwrap();
+
+    let ip_stats = query_ip_stats(&conn, table_name).unwrap();
+
+    let formatted_ip_stats: Vec<serde_json::Value> = ip_stats.into_iter().map(|(ip, stats)| {
+        json!({
+            "IP": ip,
+            "Source": stats.source_count,
+            "Destination": stats.destination_count
+        })
+    }).collect();
+
+    // Convert the Vec to a JSON array and format it
+    let json_array = serde_json::to_string_pretty(&formatted_ip_stats).unwrap();
+
+    if let Some(parent) = Path::new(output_file).parent() {
+        fs::create_dir_all(parent).unwrap();
+    }
+
+    std::fs::write(output_file, json_array).unwrap();
+
+    Ok("".to_string())
+}
+
+#[tauri::command]
+fn output_packet_per_second_command(table_name: &str, output_file: &str) -> Result<String, String> {
+    let conn = Connection::open(abhi_url).unwrap();
+
+    let packet_per_second = query_packet_per_second(&conn, table_name).unwrap();
+
+    let formatted_packet_per_second: Vec<serde_json::Value> = packet_per_second.into_iter().map(|(timestamp, count)| {
+        json!({
+            "timeStamp": timestamp,
+            "traffic": count
+        })
+    }).collect();
+
+    // Convert the Vec to a JSON array and format it
+    let json_array = serde_json::to_string_pretty(&formatted_packet_per_second).unwrap();
+
+    if let Some(parent) = Path::new(output_file).parent() {
+        fs::create_dir_all(parent).unwrap();
+    }
+
+    std::fs::write(output_file, json_array).unwrap();
+
+    Ok("".to_string())
+}
+
+
 #[tokio::main]
 async fn main() {
     Builder::default()
         .manage(Arc::new(AppState::default()))
-        .invoke_handler(tauri::generate_handler![start_packet_sniffer, handle_ollama,stop_packet_sniffer,list_names,list_interfacce,get_table_data])
+        .invoke_handler(tauri::generate_handler![start_packet_sniffer, handle_ollama, stop_packet_sniffer, list_names, list_interfacce, get_table_data, output_ip_stats_command, output_packet_per_second_command])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

@@ -16,6 +16,9 @@ import Pagination from "./components/Pagination";
 import { Bargraph } from "./components/Bargraph";
 import { Piechart } from "./components/Piechart";
 import { Lineargraph } from "./components/lineargraph";
+import { open } from '@tauri-apps/api/dialog';
+import { join } from '@tauri-apps/api/path';
+
 
 function App() {
   const [activeComponent, setActiveComponent] = useState("bargraph");
@@ -26,6 +29,7 @@ function App() {
   const [tableData, setTableData] = useState([]);
   const [interfaces, setInterfaces] = useState([]);
   const [selectedInterface, setSelectedInterface] = useState("");
+  const [analysisTable, setAnalysisTable] = useState("");
 
   useEffect(() => {
     if (currentPage === "table") {
@@ -90,6 +94,21 @@ function App() {
     }
   };
 
+  const generateJsonFiles = async () => {
+    console.log("generateJsonFiles function called");
+    if (analysisTable) {
+      await invoke("output_ip_stats_command", {
+        tableName: analysisTable,
+        outputFile: "ip_stats.json",
+      });
+      
+      await invoke("output_packet_per_second_command", {
+        tableName: analysisTable,
+        outputFile: "timestamp_details.json",
+      });
+    }
+  };
+  
   return (
     <div className="App min-h-screen bg-gray-100 flex flex-col">
       <nav className="bg-gray-800 p-4 text-white flex justify-between items-center">
@@ -175,7 +194,7 @@ function App() {
               <select
                 onChange={(e) => {
                   setSelectedTable(e.target.value);
-                  setTableData([]); // Clear previous data
+                  setTableData([]);
                 }}
                 value={selectedTable}
                 className="px-4 py-2 border rounded"
@@ -204,43 +223,59 @@ function App() {
             </div>
           </div>
         )}
-        {currentPage === "analysis" && (
-          <div>
-            <h1 className="text-2xl font-bold">Analysis</h1>
-            <div className="flex gap-7">
-              <Button
-                onClick={() => setActiveComponent("bargraph")}
-                disabled={activeComponent === "bargraph"}
-              >
-                Show Bargraph
-              </Button>
-
-              <Button
-                onClick={() => setActiveComponent("lineargraph")}
-                disabled={activeComponent === "lineargraph"}
-              >
-                Show Lineargraph
-              </Button>
-
-              <Button onClick={() => setActiveComponent("piechart")}
+      {currentPage === "analysis" && (
+        <div>
+          <h1 className="text-2xl font-bold mb-4">Analysis</h1>
+          <div className="mb-4">
+            <select
+              onChange={(e) => setAnalysisTable(e.target.value)}
+              value={analysisTable}
+              className="px-4 py-2 border rounded"
+            >
+              <option value="">Select Table</option>
+              {tableNames.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={generateJsonFiles}
+              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-500 ml-4"
+              disabled={!analysisTable}
+            >
+              Analyse
+            </button>
+          </div>
+          <div className="flex gap-7">
+            <Button
+              onClick={() => setActiveComponent("bargraph")}
+              disabled={activeComponent === "bargraph"}
+            >
+              Show Bargraph
+            </Button>
+            <Button
+              onClick={() => setActiveComponent("lineargraph")}
+              disabled={activeComponent === "lineargraph"}
+            >
+              Show Lineargraph
+            </Button>
+            <Button onClick={() => setActiveComponent("piechart")}
                 disabled={activeComponent === "piechart"}>
                 Show Piechart
               </Button>
-            </div>
-
-            <div className="scale-[0.90]">
-              {activeComponent === "bargraph" && <Bargraph />}
-            </div>
-            
-            <div className="mt-[10%]">
-              {activeComponent === "lineargraph" && <Lineargraph />}
-            </div>
-
+          </div>
+          <div className="scale-[0.90]">
+            {activeComponent === "bargraph" && <Bargraph />}
+          </div>
+          <div className="mt-[10%]">
+            {activeComponent === "lineargraph" && <Lineargraph />}
             <div className="mt-[10%]">
               {activeComponent === "piechart" && <Piechart />}
             </div>
           </div>
-        )}
+        </div>
+      )}
       </main>
     </div>
   );
