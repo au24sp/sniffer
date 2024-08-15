@@ -431,14 +431,17 @@ fn output_packet_per_second_command(table_name: &str, output_file: &str) -> Resu
 
     let packet_per_second = query_packet_per_second(&conn, table_name).unwrap();
 
-    let formatted_packet_per_second: Vec<serde_json::Value> = packet_per_second.into_iter().map(|(timestamp, count)| {
+    let mut formatted_packet_per_second: Vec<(String, u32)> = packet_per_second.into_iter().collect();
+    
+    formatted_packet_per_second.sort_by(|a, b| a.0.cmp(&b.0));
+
+    let formatted_packet_per_second: Vec<serde_json::Value> = formatted_packet_per_second.into_iter().map(|(timestamp, count)| {
         json!({
             "timeStamp": timestamp,
             "traffic": count
         })
     }).collect();
 
-    // Convert the Vec to a JSON array and format it
     let json_array = serde_json::to_string_pretty(&formatted_packet_per_second).unwrap();
 
     if let Some(parent) = Path::new(output_file).parent() {
@@ -451,11 +454,21 @@ fn output_packet_per_second_command(table_name: &str, output_file: &str) -> Resu
 }
 
 
+#[tauri::command]
+fn read_ip_stats() -> Result<String, String> {
+    fs::read_to_string("ip_stats.json").map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn read_timestamp_details() -> Result<String, String> {
+    fs::read_to_string("timestamp_details.json").map_err(|e| e.to_string())
+}
+
 #[tokio::main]
 async fn main() {
     Builder::default()
         .manage(Arc::new(AppState::default()))
-        .invoke_handler(tauri::generate_handler![start_packet_sniffer, handle_ollama, stop_packet_sniffer, list_names, list_interfacce, get_table_data, output_ip_stats_command, output_packet_per_second_command])
+        .invoke_handler(tauri::generate_handler![start_packet_sniffer, handle_ollama, stop_packet_sniffer, list_names, list_interfacce, get_table_data, output_ip_stats_command, output_packet_per_second_command, read_ip_stats, read_timestamp_details])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

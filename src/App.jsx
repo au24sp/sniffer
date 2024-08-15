@@ -93,9 +93,10 @@ function App() {
       }
     }
   };
+  const [ipStatsData, setIpStatsData] = useState(null);
+  const [timestampData, setTimestampData] = useState(null);
 
   const generateJsonFiles = async () => {
-    console.log("generateJsonFiles function called");
     if (analysisTable) {
       await invoke("output_ip_stats_command", {
         tableName: analysisTable,
@@ -106,6 +107,16 @@ function App() {
         tableName: analysisTable,
         outputFile: "timestamp_details.json",
       });
+  
+      const ipStats = await invoke('read_ip_stats');
+      const parsedIpStats = JSON.parse(ipStats);
+      setIpStatsData(parsedIpStats);
+  
+      const timestampDetails = await invoke('read_timestamp_details');
+      const parsedTimestampDetails = JSON.parse(timestampDetails);
+      setTimestampData(parsedTimestampDetails);
+  
+      setActiveComponent(prev => prev);
     }
   };
   
@@ -266,10 +277,10 @@ function App() {
               </Button>
           </div>
           <div className="scale-[0.90]">
-            {activeComponent === "bargraph" && <Bargraph />}
+          {activeComponent === "bargraph" && <Bargraph data={ipStatsData} />}
           </div>
           <div className="mt-[10%]">
-            {activeComponent === "lineargraph" && <Lineargraph />}
+          {activeComponent === "lineargraph" && <Lineargraph data={timestampData} />}
             <div className="mt-[10%]">
               {activeComponent === "piechart" && <Piechart />}
             </div>
