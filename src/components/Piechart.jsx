@@ -22,10 +22,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-const desktopData = [
-  { month: "IPV4", desktop: 186, fill: "hsl(25 34% 28%)" },
-  { month: "IPV6", desktop: 305, fill: "hsl(36 45% 60%)" },
-];
 
 const chartConfig = {
   Protocol: {
@@ -44,33 +40,48 @@ const chartConfig = {
   },
 };
 
-export function Piechart() {
-  const id = "pie-interactive";
-  const [activeMonth, setActiveMonth] = React.useState(desktopData[0].month);
+export function Piechart({ data }) {
+  const [activeType, setActiveType] = React.useState(data && data.length > 0 ? data[0].type : '');
 
-  const activeIndex = React.useMemo(
-    () => desktopData.findIndex((item) => item.month === activeMonth),
-    [activeMonth]
-  );
-  const months = React.useMemo(() => desktopData.map((item) => item.month), []);
+  const activeIndex = React.useMemo(() => {
+    if (!data || data.length === 0) return 0;
+    const index = data.findIndex((item) => item.type === activeType);
+    return index >= 0 ? index : 0;
+  }, [activeType, data]);
+
+  const types = React.useMemo(() => data ? data.map((item) => item.type) : [], [data]);
+
+  const chartConfig = React.useMemo(() => {
+    if (!data) return {};
+    return data.reduce((acc, item) => {
+      acc[item.type] = {
+        label: item.type,
+      };
+      return acc;
+    }, {});
+  }, [data]);
+
+  if (!data || data.length === 0) {
+    return <div>No data available</div>;
+  }
 
   return (
-    <Card data-chart={id} className="flex flex-col">
-      <ChartStyle id={id} config={chartConfig} />
+    <Card data-chart="pie-interactive" className="flex flex-col">
+      <ChartStyle id="pie-interactive" config={chartConfig} />
       <CardHeader className="flex-row items-start space-y-0 pb-0">
         <div className="grid gap-1">
           <CardTitle>Pie Chart</CardTitle>
-          <CardDescription>IPV4 - IPV6</CardDescription>
+          <CardDescription>Packet Types Distribution</CardDescription>
         </div>
-        <Select value={activeMonth} onValueChange={setActiveMonth}>
+        <Select value={activeType} onValueChange={setActiveType}>
           <SelectTrigger
             className="ml-auto h-7 w-[130px] rounded-lg pl-2.5"
             aria-label="Select a value"
           >
-            <SelectValue placeholder="Select month" />
+            <SelectValue placeholder="Select type" />
           </SelectTrigger>
           <SelectContent align="end" className="rounded-xl">
-            {months.map((key) => {
+            {types.map((key) => {
               const config = chartConfig[key];
 
               if (!config) {
@@ -100,7 +111,7 @@ export function Piechart() {
       </CardHeader>
       <CardContent className="flex flex-1 justify-center pb-0">
         <ChartContainer
-          id={id}
+          id="pie-interactive"
           config={chartConfig}
           className="mx-auto aspect-square w-full max-w-[300px]"
         >
@@ -110,9 +121,9 @@ export function Piechart() {
               content={<ChartTooltipContent hideLabel />}
             />
             <Pie
-              data={desktopData}
-              dataKey="desktop"
-              nameKey="month"
+              data={data}
+              dataKey="count"
+              nameKey="type"
               innerRadius={60}
               strokeWidth={5}
               activeIndex={activeIndex}
@@ -126,11 +137,11 @@ export function Piechart() {
                   />
                 </g>
               )}
-              fill={(entry) => chartConfig[entry.month]?.color}
             >
               <Label
                 content={({ viewBox }) => {
                   if (viewBox && "cx" in viewBox && "cy" in viewBox) {
+                    const count = (data[activeIndex] && data[activeIndex].count) || 0;
                     return (
                       <text
                         x={viewBox.cx}
@@ -143,7 +154,7 @@ export function Piechart() {
                           y={viewBox.cy}
                           className="fill-foreground text-3xl font-bold"
                         >
-                          {desktopData[activeIndex].desktop.toLocaleString()}
+                          {count.toLocaleString()}
                         </tspan>
                         <tspan
                           x={viewBox.cx}
@@ -155,6 +166,7 @@ export function Piechart() {
                       </text>
                     );
                   }
+                  return null;
                 }}
               />
             </Pie>
