@@ -16,9 +16,8 @@ import Pagination from "./components/Pagination";
 import { Bargraph } from "./components/Bargraph";
 import { Piechart } from "./components/Piechart";
 import { Lineargraph } from "./components/lineargraph";
-import { open } from '@tauri-apps/api/dialog';
-import { join } from '@tauri-apps/api/path';
-
+import { open } from "@tauri-apps/api/dialog";
+import { join } from "@tauri-apps/api/path";
 
 function App() {
   const [activeComponent, setActiveComponent] = useState("bargraph");
@@ -30,7 +29,6 @@ function App() {
   const [interfaces, setInterfaces] = useState([]);
   const [selectedInterface, setSelectedInterface] = useState("");
   const [analysisTable, setAnalysisTable] = useState("");
-  const [packetTypesData, setPacketTypesData] = useState(null);
 
   useEffect(() => {
     if (currentPage === "table") {
@@ -38,6 +36,8 @@ function App() {
     }
     if (currentPage === "sniffer") {
       listInterfaces();
+    }
+    if (currentPage === "visualization") {
     }
     if (currentPage === "analysis") {
     }
@@ -96,6 +96,7 @@ function App() {
   };
   const [ipStatsData, setIpStatsData] = useState(null);
   const [timestampData, setTimestampData] = useState(null);
+  const [packetTypesData, setPacketTypesData] = useState(null);
 
   const generateJsonFiles = async () => {
     if (analysisTable) {
@@ -103,7 +104,7 @@ function App() {
         tableName: analysisTable,
         outputFile: "ip_stats.json",
       });
-      
+
       await invoke("output_packet_per_second_command", {
         tableName: analysisTable,
         outputFile: "timestamp_details.json",
@@ -113,23 +114,23 @@ function App() {
         tableName: analysisTable,
         outputFile: "packet_types.json",
       });
-  
-      const ipStats = await invoke('read_ip_stats');
+
+      const ipStats = await invoke("read_ip_stats");
       const parsedIpStats = JSON.parse(ipStats);
       setIpStatsData(parsedIpStats);
-  
-      const timestampDetails = await invoke('read_timestamp_details');
+
+      const timestampDetails = await invoke("read_timestamp_details");
       const parsedTimestampDetails = JSON.parse(timestampDetails);
       setTimestampData(parsedTimestampDetails);
 
-      const packetTypes = await invoke('read_packet_types');
+      const packetTypes = await invoke("read_packet_types");
       const parsedPacketTypes = JSON.parse(packetTypes);
       setPacketTypesData(parsedPacketTypes);
-  
-      setActiveComponent(prev => prev);
+
+      setActiveComponent((prev) => prev);
     }
   };
-  
+
   return (
     <div className="App min-h-screen bg-gray-100 flex flex-col">
       <nav className="bg-gray-800 p-4 text-white flex justify-between items-center">
@@ -155,6 +156,16 @@ function App() {
             Table View
           </button>
           <button
+            onClick={() => setCurrentPage("visualization")}
+            className={`px-4 py-2 rounded ml-4 ${
+              currentPage === "table"
+                ? "bg-gray-700"
+                : "bg-gray-600 hover:bg-gray-500"
+            }`}
+          >
+            Visualization
+          </button>
+          <button
             onClick={() => setCurrentPage("analysis")}
             className={`px-4 py-2 rounded ml-4 ${
               currentPage === "table"
@@ -162,7 +173,7 @@ function App() {
                 : "bg-gray-600 hover:bg-gray-500"
             }`}
           >
-            Analysis
+            AI Analysis
           </button>
         </div>
       </nav>
@@ -244,59 +255,96 @@ function App() {
             </div>
           </div>
         )}
-      {currentPage === "analysis" && (
-        <div>
-          <h1 className="text-2xl font-bold mb-4">Analysis</h1>
-          <div className="mb-4">
-            <select
-              onChange={(e) => setAnalysisTable(e.target.value)}
-              value={analysisTable}
-              className="px-4 py-2 border rounded"
-            >
-              <option value="">Select Table</option>
-              {tableNames.map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </select>
-            <button
-              onClick={generateJsonFiles}
-              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-500 ml-4"
-              disabled={!analysisTable}
-            >
-              Analyse
-            </button>
-          </div>
-          <div className="flex gap-7">
-            <Button
-              onClick={() => setActiveComponent("bargraph")}
-              disabled={activeComponent === "bargraph"}
-            >
-              Show Bargraph
-            </Button>
-            <Button
-              onClick={() => setActiveComponent("lineargraph")}
-              disabled={activeComponent === "lineargraph"}
-            >
-              Show Lineargraph
-            </Button>
-            <Button onClick={() => setActiveComponent("piechart")}
-                disabled={activeComponent === "piechart"}>
+        {currentPage === "visualization" && (
+          <div>
+            <h1 className="text-2xl font-bold mb-4">Visualization</h1>
+            <div className="mb-4">
+              <select
+                onChange={(e) => setAnalysisTable(e.target.value)}
+                value={analysisTable}
+                className="px-4 py-2 border rounded"
+              >
+                <option value="">Select Table</option>
+                {tableNames.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={generateJsonFiles}
+                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-500 ml-4"
+                disabled={!analysisTable}
+              >
+                Visualize
+              </button>
+            </div>
+            <div className="flex gap-7">
+              <Button
+                onClick={() => setActiveComponent("bargraph")}
+                disabled={activeComponent === "bargraph"}
+              >
+                Show Bargraph
+              </Button>
+              <Button
+                onClick={() => setActiveComponent("lineargraph")}
+                disabled={activeComponent === "lineargraph"}
+              >
+                Show Lineargraph
+              </Button>
+              <Button
+                onClick={() => setActiveComponent("piechart")}
+                disabled={activeComponent === "piechart"}
+              >
                 Show Piechart
               </Button>
+            </div>
+            <div className="scale-[0.90]">
+              {activeComponent === "bargraph" && (
+                <Bargraph data={ipStatsData} />
+              )}
+            </div>
+            <div className="mt-[10%]">
+              {activeComponent === "lineargraph" && (
+                <Lineargraph data={timestampData} />
+              )}
+              <div className="mt-[10%]">
+                {activeComponent === "piechart" && (
+                  <Piechart data={packetTypesData} />
+                )}
+              </div>
+            </div>
           </div>
-          <div className="scale-[0.90]">
-          {activeComponent === "bargraph" && <Bargraph data={ipStatsData} />}
+        )}
+        {currentPage === "analysis" && (
+          <div>
+            <h1 className="text-2xl font-bold mb-4">AI Analysis</h1>
+            <div className="mb-4">
+              <select
+                onChange={(e) => setAnalysisTable(e.target.value)}
+                value={analysisTable}
+                className="px-4 py-2 border rounded"
+              >
+                <option value="">Select Table</option>
+                {tableNames.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={generateJsonFiles}
+                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-500 ml-4"
+                disabled={!analysisTable}
+              >
+                Analyse
+              </button>
+              <div className="flex gap-7">
+               
+                </div>
+            </div>
           </div>
-          <div className="mt-[10%]">
-          {activeComponent === "lineargraph" && <Lineargraph data={timestampData} />}
-          <div className="mt-[10%]">
-          {activeComponent === "piechart" && <Piechart data={packetTypesData} />}
-        </div>
-          </div>
-        </div>
-      )}
+        )}
       </main>
     </div>
   );
