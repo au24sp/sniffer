@@ -30,6 +30,7 @@ function App() {
   const [interfaces, setInterfaces] = useState([]);
   const [selectedInterface, setSelectedInterface] = useState("");
   const [analysisTable, setAnalysisTable] = useState("");
+  const [packetTypesData, setPacketTypesData] = useState(null);
 
   useEffect(() => {
     if (currentPage === "table") {
@@ -107,6 +108,11 @@ function App() {
         tableName: analysisTable,
         outputFile: "timestamp_details.json",
       });
+
+      await invoke("output_packet_types_command", {
+        tableName: analysisTable,
+        outputFile: "packet_types.json",
+      });
   
       const ipStats = await invoke('read_ip_stats');
       const parsedIpStats = JSON.parse(ipStats);
@@ -115,6 +121,10 @@ function App() {
       const timestampDetails = await invoke('read_timestamp_details');
       const parsedTimestampDetails = JSON.parse(timestampDetails);
       setTimestampData(parsedTimestampDetails);
+
+      const packetTypes = await invoke('read_packet_types');
+      const parsedPacketTypes = JSON.parse(packetTypes);
+      setPacketTypesData(parsedPacketTypes);
   
       setActiveComponent(prev => prev);
     }
@@ -281,9 +291,9 @@ function App() {
           </div>
           <div className="mt-[10%]">
           {activeComponent === "lineargraph" && <Lineargraph data={timestampData} />}
-            <div className="mt-[10%]">
-              {activeComponent === "piechart" && <Piechart />}
-            </div>
+          <div className="mt-[10%]">
+          {activeComponent === "piechart" && <Piechart data={packetTypesData} />}
+        </div>
           </div>
         </div>
       )}

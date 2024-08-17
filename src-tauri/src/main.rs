@@ -398,6 +398,25 @@ fn query_packet_per_second(conn: &Connection, table_name: &str) -> Result<HashMa
     Ok(packet_count)
 }
 
+fn query_packet_types(conn: &Connection, table_name: &str) -> Result<HashMap<String, u32>> {
+    let mut packet_types: HashMap<String, u32> = HashMap::new();
+    let query = format!("SELECT packet_type FROM {}", table_name);
+    let mut stmt = conn.prepare(&query)?;
+    let packet_iter = stmt.query_map([], |row| {
+        let packet_type: String = row.get(0)?;
+        Ok(packet_type)
+    })?;
+
+    for packet in packet_iter {
+        let packet_type = packet?;
+        let count = packet_types.entry(packet_type).or_insert(0);
+        *count += 1;
+    }
+
+    Ok(packet_types)
+}
+
+
 
 #[tauri::command]
 fn output_ip_stats_command(table_name: &str, output_file: &str) -> Result<String, String> {
@@ -453,6 +472,28 @@ fn output_packet_per_second_command(table_name: &str, output_file: &str) -> Resu
     Ok("".to_string())
 }
 
+#[tauri::command]
+fn output_packet_types_command(table_name: &str, output_file: &str) -> Result<String, String> {
+    let conn = Connection::open(abhi_url).unwrap();
+    let packet_types = query_packet_types(&conn, table_name).unwrap();
+    
+    let formatted_packet_types: Vec<serde_json::Value> = packet_types.into_iter().map(|(packet_type, count)| {
+        json!({
+            "type": packet_type,
+            "count": count
+        })
+    }).collect();
+
+    let json_array = serde_json::to_string_pretty(&formatted_packet_types).unwrap();
+    
+    if let Some(parent) = Path::new(output_file).parent() {
+        fs::create_dir_all(parent).unwrap();
+    }
+    fs::write(output_file, json_array).unwrap();
+    
+    Ok("".to_string())
+}
+
 
 #[tauri::command]
 fn read_ip_stats() -> Result<String, String> {
@@ -464,11 +505,17 @@ fn read_timestamp_details() -> Result<String, String> {
     fs::read_to_string("timestamp_details.json").map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+fn read_packet_types() -> Result<String, String> {
+    fs::read_to_string("packet_types.json").map_err(|e| e.to_string())
+}
+
+
 #[tokio::main]
 async fn main() {
     Builder::default()
         .manage(Arc::new(AppState::default()))
-        .invoke_handler(tauri::generate_handler![start_packet_sniffer, handle_ollama, stop_packet_sniffer, list_names, list_interfacce, get_table_data, output_ip_stats_command, output_packet_per_second_command, read_ip_stats, read_timestamp_details])
+        .invoke_handler(tauri::generate_handler![start_packet_sniffer, handle_ollama, stop_packet_sniffer, list_names, list_interfacce, get_table_data, output_ip_stats_command, output_packet_per_second_command, read_ip_stats, read_timestamp_details, output_packet_types_command, read_packet_types])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

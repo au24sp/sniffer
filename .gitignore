@@ -25,3 +25,4 @@ dist-ssr
 
 ip_stats.json
 timestamp_details.json
+packet_types.json

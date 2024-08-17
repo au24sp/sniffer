@@ -126,6 +126,7 @@ export function Piechart() {
                   />
                 </g>
               )}
+              fill={(entry) => chartConfig[entry.month]?.color}
             >
               <Label
                 content={({ viewBox }) => {
