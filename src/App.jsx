@@ -29,6 +29,9 @@ function App() {
   const [interfaces, setInterfaces] = useState([]);
   const [selectedInterface, setSelectedInterface] = useState("");
   const [analysisTable, setAnalysisTable] = useState("");
+  const [ipStatsData, setIpStatsData] = useState(null);
+  const [timestampData, setTimestampData] = useState(null);
+  const [packetTypesData, setPacketTypesData] = useState(null);
 
   useEffect(() => {
     if (currentPage === "table") {
@@ -36,10 +39,6 @@ function App() {
     }
     if (currentPage === "sniffer") {
       listInterfaces();
-    }
-    if (currentPage === "visualization") {
-    }
-    if (currentPage === "analysis") {
     }
   }, [currentPage]);
 
@@ -94,40 +93,23 @@ function App() {
       }
     }
   };
-  const [ipStatsData, setIpStatsData] = useState(null);
-  const [timestampData, setTimestampData] = useState(null);
-  const [packetTypesData, setPacketTypesData] = useState(null);
 
-  const generateJsonFiles = async () => {
+  const generateVisualizationData = async () => {
     if (analysisTable) {
-      await invoke("output_ip_stats_command", {
-        tableName: analysisTable,
-        outputFile: "ip_stats.json",
-      });
-
-      await invoke("output_packet_per_second_command", {
-        tableName: analysisTable,
-        outputFile: "timestamp_details.json",
-      });
-
-      await invoke("output_packet_types_command", {
-        tableName: analysisTable,
-        outputFile: "packet_types.json",
-      });
-
-      const ipStats = await invoke("read_ip_stats");
-      const parsedIpStats = JSON.parse(ipStats);
-      setIpStatsData(parsedIpStats);
-
-      const timestampDetails = await invoke("read_timestamp_details");
-      const parsedTimestampDetails = JSON.parse(timestampDetails);
-      setTimestampData(parsedTimestampDetails);
-
-      const packetTypes = await invoke("read_packet_types");
-      const parsedPacketTypes = JSON.parse(packetTypes);
-      setPacketTypesData(parsedPacketTypes);
-
-      setActiveComponent((prev) => prev);
+      try {
+        const ipStats = await invoke("get_ip_stats", { tableName: analysisTable });
+        setIpStatsData(ipStats);
+  
+        const timestampDetails = await invoke("get_packet_per_second", { tableName: analysisTable });
+        setTimestampData(timestampDetails);
+  
+        const packetTypes = await invoke("get_packet_types", { tableName: analysisTable });
+        setPacketTypesData(packetTypes);
+  
+        setActiveComponent((prev) => prev);
+      } catch (error) {
+        console.error("Error fetching visualization data:", error);
+      }
     }
   };
 
@@ -158,7 +140,7 @@ function App() {
           <button
             onClick={() => setCurrentPage("visualization")}
             className={`px-4 py-2 rounded ml-4 ${
-              currentPage === "table"
+              currentPage === "visualization"
                 ? "bg-gray-700"
                 : "bg-gray-600 hover:bg-gray-500"
             }`}
@@ -168,7 +150,7 @@ function App() {
           <button
             onClick={() => setCurrentPage("analysis")}
             className={`px-4 py-2 rounded ml-4 ${
-              currentPage === "table"
+              currentPage === "analysis"
                 ? "bg-gray-700"
                 : "bg-gray-600 hover:bg-gray-500"
             }`}
@@ -272,7 +254,7 @@ function App() {
                 ))}
               </select>
               <button
-                onClick={generateJsonFiles}
+                onClick={generateVisualizationData}
                 className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-500 ml-4"
                 disabled={!analysisTable}
               >
@@ -333,7 +315,7 @@ function App() {
                 ))}
               </select>
               <button
-                onClick={generateJsonFiles}
+                onClick={generateVisualizationData}
                 className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-500 ml-4"
                 disabled={!analysisTable}
               >

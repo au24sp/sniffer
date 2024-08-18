@@ -346,34 +346,31 @@ fn handle_ipv6_packets(packet: &Ipv6Packet, conn: &Connection, table_name: &str,
     Ok(())
 }
 
-fn query_ip_stats(conn: &Connection, table_name: &str) -> Result<HashMap<String, IpStats>, rusqlite::Error> {
-    let mut ip_map: HashMap<String, IpStats> = HashMap::new();
-    let query = format!("SELECT source, destination FROM {}", table_name);
-    let mut stmt = conn.prepare(&query)?;
+fn query_ip_stats(conn: &Connection, table_name: &str) -> Result<HashMap<String, IpStats>> {
+    let mut stmt = conn.prepare(&format!(
+        "SELECT source, destination FROM {}",
+        table_name
+    ))?;
 
-    let packet_iter = stmt.query_map([], |row| {
+    let mut ip_stats: HashMap<String, IpStats> = HashMap::new();
+    let rows = stmt.query_map(params![], |row| {
         let source: String = row.get(0)?;
         let destination: String = row.get(1)?;
         Ok((source, destination))
     })?;
+    for row in rows {
+        let (source, destination) = row?;
+        
+        ip_stats.entry(source)
+            .and_modify(|stats| stats.source_count += 1)
+            .or_insert(IpStats { source_count: 1, destination_count: 0 });
 
-    for packet in packet_iter {
-        let (source, destination) = packet?;
-
-        let entry = ip_map.entry(source.clone()).or_insert(IpStats {
-            source_count: 0,
-            destination_count: 0,
-        });
-        entry.source_count += 1;
-
-        let entry = ip_map.entry(destination.clone()).or_insert(IpStats {
-            source_count: 0,
-            destination_count: 0,
-        });
-        entry.destination_count += 1;
+        ip_stats.entry(destination)
+            .and_modify(|stats| stats.destination_count += 1)
+            .or_insert(IpStats { source_count: 0, destination_count: 1 });
     }
 
-    Ok(ip_map)
+    Ok(ip_stats)
 }
 
 fn query_packet_per_second(conn: &Connection, table_name: &str) -> Result<HashMap<String, u32>, rusqlite::Error> {
@@ -390,7 +387,6 @@ fn query_packet_per_second(conn: &Connection, table_name: &str) -> Result<HashMa
         let timestamp = packet?;
         let time_part = timestamp.split('T').nth(1).unwrap_or(&timestamp);
         let formatted_time = time_part.split('.').next().unwrap_or(&time_part);
-
         let count = packet_count.entry(formatted_time.to_string()).or_insert(0);
         *count += 1;
     }
@@ -399,18 +395,24 @@ fn query_packet_per_second(conn: &Connection, table_name: &str) -> Result<HashMa
 }
 
 fn query_packet_types(conn: &Connection, table_name: &str) -> Result<HashMap<String, u32>> {
+    let mut stmt = conn.prepare(&format!(
+        "SELECT packet_type, COUNT(*) as count
+         FROM {}
+         GROUP BY packet_type",
+        table_name
+    ))?;
+
     let mut packet_types: HashMap<String, u32> = HashMap::new();
-    let query = format!("SELECT packet_type FROM {}", table_name);
-    let mut stmt = conn.prepare(&query)?;
-    let packet_iter = stmt.query_map([], |row| {
+
+    let rows = stmt.query_map(params![], |row| {
         let packet_type: String = row.get(0)?;
-        Ok(packet_type)
+        let count: u32 = row.get(1)?;
+        Ok((packet_type, count))
     })?;
 
-    for packet in packet_iter {
-        let packet_type = packet?;
-        let count = packet_types.entry(packet_type).or_insert(0);
-        *count += 1;
+    for row in rows {
+        let (packet_type, count) = row?;
+        packet_types.insert(packet_type, count);
     }
 
     Ok(packet_types)
@@ -419,10 +421,9 @@ fn query_packet_types(conn: &Connection, table_name: &str) -> Result<HashMap<Str
 
 
 #[tauri::command]
-fn output_ip_stats_command(table_name: &str, output_file: &str) -> Result<String, String> {
-    let conn = Connection::open(abhi_url).unwrap();
-
-    let ip_stats = query_ip_stats(&conn, table_name).unwrap();
+fn get_ip_stats(table_name: &str) -> Result<Vec<serde_json::Value>, String> {
+    let conn = Connection::open(abhi_url).map_err(|e| e.to_string())?;
+    let ip_stats = query_ip_stats(&conn, table_name).map_err(|e| e.to_string())?;
 
     let formatted_ip_stats: Vec<serde_json::Value> = ip_stats.into_iter().map(|(ip, stats)| {
         json!({
@@ -432,26 +433,15 @@ fn output_ip_stats_command(table_name: &str, output_file: &str) -> Result<String
         })
     }).collect();
 
-    // Convert the Vec to a JSON array and format it
-    let json_array = serde_json::to_string_pretty(&formatted_ip_stats).unwrap();
-
-    if let Some(parent) = Path::new(output_file).parent() {
-        fs::create_dir_all(parent).unwrap();
-    }
-
-    std::fs::write(output_file, json_array).unwrap();
-
-    Ok("".to_string())
+    Ok(formatted_ip_stats)
 }
 
 #[tauri::command]
-fn output_packet_per_second_command(table_name: &str, output_file: &str) -> Result<String, String> {
-    let conn = Connection::open(abhi_url).unwrap();
-
-    let packet_per_second = query_packet_per_second(&conn, table_name).unwrap();
+fn get_packet_per_second(table_name: &str) -> Result<Vec<serde_json::Value>, String> {
+    let conn = Connection::open(abhi_url).map_err(|e| e.to_string())?;
+    let packet_per_second = query_packet_per_second(&conn, table_name).map_err(|e| e.to_string())?;
 
     let mut formatted_packet_per_second: Vec<(String, u32)> = packet_per_second.into_iter().collect();
-    
     formatted_packet_per_second.sort_by(|a, b| a.0.cmp(&b.0));
 
     let formatted_packet_per_second: Vec<serde_json::Value> = formatted_packet_per_second.into_iter().map(|(timestamp, count)| {
@@ -461,21 +451,13 @@ fn output_packet_per_second_command(table_name: &str, output_file: &str) -> Resu
         })
     }).collect();
 
-    let json_array = serde_json::to_string_pretty(&formatted_packet_per_second).unwrap();
-
-    if let Some(parent) = Path::new(output_file).parent() {
-        fs::create_dir_all(parent).unwrap();
-    }
-
-    std::fs::write(output_file, json_array).unwrap();
-
-    Ok("".to_string())
+    Ok(formatted_packet_per_second)
 }
 
 #[tauri::command]
-fn output_packet_types_command(table_name: &str, output_file: &str) -> Result<String, String> {
-    let conn = Connection::open(abhi_url).unwrap();
-    let packet_types = query_packet_types(&conn, table_name).unwrap();
+fn get_packet_types(table_name: &str) -> Result<Vec<serde_json::Value>, String> {
+    let conn = Connection::open(abhi_url).map_err(|e| e.to_string())?;
+    let packet_types = query_packet_types(&conn, table_name).map_err(|e| e.to_string())?;
     
     let formatted_packet_types: Vec<serde_json::Value> = packet_types.into_iter().map(|(packet_type, count)| {
         json!({
@@ -484,38 +466,18 @@ fn output_packet_types_command(table_name: &str, output_file: &str) -> Result<St
         })
     }).collect();
 
-    let json_array = serde_json::to_string_pretty(&formatted_packet_types).unwrap();
-    
-    if let Some(parent) = Path::new(output_file).parent() {
-        fs::create_dir_all(parent).unwrap();
-    }
-    fs::write(output_file, json_array).unwrap();
-    
-    Ok("".to_string())
+    Ok(formatted_packet_types)
 }
 
 
-#[tauri::command]
-fn read_ip_stats() -> Result<String, String> {
-    fs::read_to_string("ip_stats.json").map_err(|e| e.to_string())
-}
 
-#[tauri::command]
-fn read_timestamp_details() -> Result<String, String> {
-    fs::read_to_string("timestamp_details.json").map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-fn read_packet_types() -> Result<String, String> {
-    fs::read_to_string("packet_types.json").map_err(|e| e.to_string())
-}
 
 
 #[tokio::main]
 async fn main() {
     Builder::default()
         .manage(Arc::new(AppState::default()))
-        .invoke_handler(tauri::generate_handler![start_packet_sniffer, handle_ollama, stop_packet_sniffer, list_names, list_interfacce, get_table_data, output_ip_stats_command, output_packet_per_second_command, read_ip_stats, read_timestamp_details, output_packet_types_command, read_packet_types])
+        .invoke_handler(tauri::generate_handler![start_packet_sniffer, handle_ollama, stop_packet_sniffer, list_names, list_interfacce, get_table_data, get_packet_types,get_packet_per_second, get_ip_stats])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
