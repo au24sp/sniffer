@@ -31,11 +31,11 @@ const chartConfig = {
     label: "Desktop",
   },
   IPV4: {
-    label: "IPV4",
+    label: "IPv4",
     color: "#914F1E",
   },
   IPV6: {
-    label: "IPV6",
+    label: "IPv6",
     color: "#FFC107",
   },
 };
@@ -65,6 +65,7 @@ export function Piechart({ data }) {
     }, {});
   }, [data]);
 
+  console.table(data)
   if (!data || data.length === 0) {
     return <div>No data available</div>;
   }

@@ -145,8 +145,8 @@ function App() {
             onClick={() => setCurrentPage("sniffer")}
             className={`px-4 py-2 rounded ${
               currentPage === "sniffer"
-                ? "bg-gray-700"
-                : "bg-gray-600 hover:bg-gray-500"
+                ? "bg-yellow-800"
+                : "bg-yellow-900 hover:bg-yellow-700"
             }`}
           >
             Packet Sniffer
@@ -155,8 +155,8 @@ function App() {
             onClick={() => setCurrentPage("table")}
             className={`px-4 py-2 rounded ml-4 ${
               currentPage === "table"
-                ? "bg-gray-700"
-                : "bg-gray-600 hover:bg-gray-500"
+                ? "bg-yellow-800"
+                : "bg-yellow-900 hover:bg-yellow-700"
             }`}
           >
             Table View
@@ -165,8 +165,8 @@ function App() {
             onClick={() => setCurrentPage("visualization")}
             className={`px-4 py-2 rounded ml-4 ${
               currentPage === "visualization"
-                ? "bg-gray-700"
-                : "bg-gray-600 hover:bg-gray-500"
+                ? "bg-yellow-800"
+                : "bg-yellow-900 hover:bg-yellow-700"
             }`}
           >
             Visualization
@@ -175,8 +175,8 @@ function App() {
             onClick={() => setCurrentPage("analysis")}
             className={`px-4 py-2 rounded ml-4 ${
               currentPage === "analysis"
-                ? "bg-gray-700"
-                : "bg-gray-600 hover:bg-gray-500"
+                ? "bg-yellow-800"
+                : "bg-yellow-900 hover:bg-yellow-700"
             }`}
           >
             AI Analysis
@@ -210,14 +210,14 @@ function App() {
 
             <button
               onClick={startSniffer}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-500"
+              className="px-4 py-2 bg-blue-800 text-white rounded hover:bg-blue-500"
               disabled={isRunning}
             >
               Start Sniffer
             </button>
             <button
               onClick={stopSniffer}
-              className="px-4 py-2 bg-red-600 text-blue-500 rounded hover:bg-red-500 ml-4"
+              className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-500 ml-4"
               disabled={!isRunning}
             >
               Stop Sniffer
@@ -306,6 +306,7 @@ function App() {
               </Button>
             </div>
             <div className="scale-[0.90]">
+              
               {activeComponent === "bargraph" && (
                 <Bargraph data={ipStatsData} />
               )}
@@ -315,6 +316,7 @@ function App() {
                 <Lineargraph data={timestampData} />
               )}
               <div className="mt-[10%]">
+              {console.log(ipStatsData)}
                 {activeComponent === "piechart" && (
                   <Piechart data={packetTypesData} />
                 )}

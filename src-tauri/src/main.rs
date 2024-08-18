@@ -51,7 +51,7 @@ pub struct AppState {
     pub handle: Arc<Mutex<Option<JoinHandle<()>>>>,
 }
 
-const ROHITH_URL:&str = "/home/rohi/packet_data.db";
+const rohith_url:&str = "/home/rohi/packet_data.db";
 const RISHI_URL:&str = "/Users/Rishikumar/packet_data.db";
 const ABHI_URL:&str = "/home/abhi/Documents/summerproj/packet_data.db";
 
@@ -503,7 +503,7 @@ fn get_packet_per_second(table_name: &str) -> Result<Vec<serde_json::Value>, Str
 
 #[tauri::command]
 fn get_packet_types(table_name: &str) -> Result<Vec<serde_json::Value>, String> {
-    let conn = Connection::open(RISHI_URL).map_err(|e| e.to_string())?;
+    let conn = Connection::open(rohith_url).map_err(|e| e.to_string())?;
     let packet_types = query_packet_types(&conn, table_name).map_err(|e| e.to_string())?;
     
     let formatted_packet_types: Vec<serde_json::Value> = packet_types.into_iter().map(|(packet_type, count)| {
