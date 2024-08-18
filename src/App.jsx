@@ -19,19 +19,21 @@ import { Lineargraph } from "./components/lineargraph";
 import { open } from "@tauri-apps/api/dialog";
 import { join } from "@tauri-apps/api/path";
 
+
 function App() {
   const [activeComponent, setActiveComponent] = useState("bargraph");
   const [currentPage, setCurrentPage] = useState("sniffer");
   const [isRunning, setIsRunning] = useState(false);
   const [tableNames, setTableNames] = useState([]);
-  const [selectedTable, setSelectedTable] = useState("");
+  const [selectedTable, setSelectedTable] = useState("NONE");
   const [tableData, setTableData] = useState([]);
   const [interfaces, setInterfaces] = useState([]);
   const [selectedInterface, setSelectedInterface] = useState("");
   const [analysisTable, setAnalysisTable] = useState("");
-  const [ipStatsData, setIpStatsData] = useState(null);
-  const [timestampData, setTimestampData] = useState(null);
-  const [packetTypesData, setPacketTypesData] = useState(null);
+  const [ipStatsData, setIpStatsData] = useState([]);
+  const [timestampData, setTimestampData] = useState([]);
+  const [packetTypesData, setPacketTypesData] = useState([]);
+  const [ollamaData, setOllamaData] = useState([]);
 
   useEffect(() => {
     if (currentPage === "table") {
@@ -100,18 +102,34 @@ function App() {
     }
   };
 
+  const fetchOllamaData = async () => {
+    if (selectedTable) {
+      try {
+        const data = await invoke("handle_ollama", { table: analysisTable });
+        setOllamaData(data);
+      } catch (error) {
+        console.error("Error fetching table data:", error);
+      }
+    }
+  };
   const generateVisualizationData = async () => {
     if (analysisTable) {
       try {
-        const ipStats = await invoke("get_ip_stats", { tableName: analysisTable });
+        const ipStats = await invoke("get_ip_stats", {
+          tableName: analysisTable,
+        });
         setIpStatsData(ipStats);
-  
-        const timestampDetails = await invoke("get_packet_per_second", { tableName: analysisTable });
+
+        const timestampDetails = await invoke("get_packet_per_second", {
+          tableName: analysisTable,
+        });
         setTimestampData(timestampDetails);
-  
-        const packetTypes = await invoke("get_packet_types", { tableName: analysisTable });
+
+        const packetTypes = await invoke("get_packet_types", {
+          tableName: analysisTable,
+        });
         setPacketTypesData(packetTypes);
-  
+
         setActiveComponent((prev) => prev);
       } catch (error) {
         console.error("Error fetching visualization data:", error);
@@ -318,18 +336,21 @@ function App() {
                   <option key={name} value={name}>
                     {name}
                   </option>
+                
                 ))}
               </select>
               <button
-                onClick={generateVisualizationData}
+                onClick={fetchOllamaData}
                 className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-500 ml-4"
                 disabled={!analysisTable}
               >
                 Analyse
               </button>
+
               <div className="flex gap-7">
-               
-                </div>
+                <h1>{analysisTable}</h1>
+              <pre>{JSON.stringify(ollamaData, null, 2)}</pre>
+              </div>
             </div>
           </div>
         )}

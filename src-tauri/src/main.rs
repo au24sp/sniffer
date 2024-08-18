@@ -51,13 +51,13 @@ pub struct AppState {
     pub handle: Arc<Mutex<Option<JoinHandle<()>>>>,
 }
 
-const rohith_url:&str = "/home/rohi/packet_data.db";
-const rishi_url:&str = "/Users/Rishikumar/packet_data.db";
-const abhi_url:&str = "/home/abhi/Documents/summerproj/packet_data.db";
+const ROHITH_URL:&str = "/home/rohi/packet_data.db";
+const RISHI_URL:&str = "/Users/Rishikumar/packet_data.db";
+const ABHI_URL:&str = "/home/abhi/Documents/summerproj/packet_data.db";
 
 impl Default for AppState {
     fn default() -> Self {
-        let conn = Connection::open(rishi_url).expect("Failed to open database");
+        let conn = Connection::open(RISHI_URL).expect("Failed to open database");
         Self {
             running: Arc::new(AtomicBool::new(false)),
             conn: Arc::new(Mutex::new(conn)),
@@ -164,7 +164,7 @@ fn stop_packet_sniffer(state: State<'_, Arc<AppState>>) {
 
 #[tauri::command]
 fn list_names()->Vec<String> {
-    let con = Connection::open(rishi_url).expect("err in line 142");
+    let con = Connection::open(RISHI_URL).expect("err in line 142");
     let mut smt = con.prepare("SELECT name FROM sqlite_master WHERE type='table'").expect("err in table queryiong");
     let res_iter = smt.query_map([], |row|{
         row.get(0)
@@ -178,7 +178,7 @@ fn list_names()->Vec<String> {
 
 #[tauri::command]
 fn get_table_data(table: &str) -> Vec<PacketData> {
-    let conn = Connection::open(rishi_url).unwrap();
+    let conn = Connection::open(RISHI_URL).unwrap();
     let mut fromat_smt = format!("select * from {}",table);
     let mut smt = conn.prepare(&fromat_smt).unwrap();
     let result_iter = smt.query_map([], |row|{
@@ -204,7 +204,7 @@ fn get_table_data(table: &str) -> Vec<PacketData> {
 }
 
 fn _llama_data_fetcher(table: &str) -> Vec<PacketData> {
-    let conn = Connection::open(rishi_url).unwrap();
+    let conn = Connection::open(RISHI_URL).unwrap();
     let mut fromat_smt = format!("select * from {} LIMIT 50 OFFSET 2",table);
     let mut smt = conn.prepare(&fromat_smt).unwrap();
     let result_iter = smt.query_map([], |row|{
@@ -231,6 +231,7 @@ fn _llama_data_fetcher(table: &str) -> Vec<PacketData> {
 
 #[tauri::command]
 async fn handle_ollama(table: &str) -> Result<serde_json::Value, String> {
+    println!("table: {}", table);
     let data = _llama_data_fetcher(table);
     let formatted_data = data.iter()
         .map(|packet| format!(
@@ -248,6 +249,7 @@ async fn handle_ollama(table: &str) -> Result<serde_json::Value, String> {
         "Analyze the Data like a senior data analyst:\n{}",
         formatted_data
     );
+    
     let client = Client::new();
     let api_url = "http://localhost:11434/api/generate";
     let response = client.post(api_url)
@@ -467,7 +469,7 @@ fn query_packet_types(conn: &Connection, table_name: &str) -> Result<HashMap<Str
 
 #[tauri::command]
 fn get_ip_stats(table_name: &str) -> Result<Vec<serde_json::Value>, String> {
-    let conn = Connection::open(rishi_url).map_err(|e| e.to_string())?;
+    let conn = Connection::open(RISHI_URL).map_err(|e| e.to_string())?;
     let ip_stats = query_ip_stats(&conn, table_name).map_err(|e| e.to_string())?;
 
     let formatted_ip_stats: Vec<serde_json::Value> = ip_stats.into_iter().map(|(ip, stats)| {
@@ -483,7 +485,7 @@ fn get_ip_stats(table_name: &str) -> Result<Vec<serde_json::Value>, String> {
 
 #[tauri::command]
 fn get_packet_per_second(table_name: &str) -> Result<Vec<serde_json::Value>, String> {
-    let conn = Connection::open(rishi_url).map_err(|e| e.to_string())?;
+    let conn = Connection::open(RISHI_URL).map_err(|e| e.to_string())?;
     let packet_per_second = query_packet_per_second(&conn, table_name).map_err(|e| e.to_string())?;
 
     let mut formatted_packet_per_second: Vec<(String, u32)> = packet_per_second.into_iter().collect();
@@ -501,7 +503,7 @@ fn get_packet_per_second(table_name: &str) -> Result<Vec<serde_json::Value>, Str
 
 #[tauri::command]
 fn get_packet_types(table_name: &str) -> Result<Vec<serde_json::Value>, String> {
-    let conn = Connection::open(rishi_url).map_err(|e| e.to_string())?;
+    let conn = Connection::open(RISHI_URL).map_err(|e| e.to_string())?;
     let packet_types = query_packet_types(&conn, table_name).map_err(|e| e.to_string())?;
     
     let formatted_packet_types: Vec<serde_json::Value> = packet_types.into_iter().map(|(packet_type, count)| {
