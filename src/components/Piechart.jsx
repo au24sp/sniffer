@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Label, Pie, PieChart, Sector } from "recharts";
+import { Label, Pie, PieChart, Sector,Cell } from "recharts";
 // import { PieSectorDataItem } from "recharts/types/polar/Pie";
 
 import {
@@ -32,12 +32,16 @@ const chartConfig = {
   },
   IPV4: {
     label: "IPV4",
-    color: "hsl(var(--chart-1))",
+    color: "#914F1E",
   },
   IPV6: {
     label: "IPV6",
-    color: "hsl(var(--chart-2))",
+    color: "#FFC107",
   },
+};
+const COLORS = {
+  IPv4: "hsl(var(--chart-2))",
+  IPv6: "hsl(var(--chart-5))"
 };
 
 export function Piechart({ data }) {
@@ -87,24 +91,24 @@ export function Piechart({ data }) {
               if (!config) {
                 return null;
               }
-
-              return (
-                <SelectItem
-                  key={key}
-                  value={key}
-                  className="rounded-lg [&_span]:flex"
-                >
-                  <div className="flex items-center gap-2 text-xs">
-                    <span
-                      className="flex h-3 w-3 shrink-0 rounded-sm"
-                      style={{
-                        backgroundColor: config?.color,
-                      }}
-                    />
-                    {config?.label}
-                  </div>
-                </SelectItem>
-              );
+                console.log(key);
+                return (
+                  <SelectItem
+                    key={key}
+                    value={key}
+                    className="rounded-lg [&_span]:flex"
+                  >
+                    <div className="flex items-center gap-2 text-xs">
+                      <span
+                        className="flex h-3 w-3 shrink-0 rounded-sm"
+                        style={{
+                          backgroundColor: key === "IPv4" ? "hsl(var(--chart-2))" : key === "IPv6" ? "hsl(var(--chart-5))" : undefined
+                        }}
+                      />
+                      {config?.label}
+                    </div>
+                  </SelectItem>
+                );
             })}
           </SelectContent>
         </Select>
@@ -120,12 +124,19 @@ export function Piechart({ data }) {
               cursor={false}
               content={<ChartTooltipContent hideLabel />}
             />
+
+            {console.log(data[0].type)}
+            {/* {console.log(dataKey)}  */}
             <Pie
               data={data}
               dataKey="count"
               nameKey="type"
               innerRadius={60}
               strokeWidth={5}
+              //style={ {backgroundColor:"IPv4" ? "#914F1E" :  "IPv6" ? "#FFC107" : undefined}}
+
+              // fill={"IPv4" ? "#914F1E" : "#FFC107"}
+              // fill= {"IPv6" ? "#FFC107" : "#FFC107"}
               activeIndex={activeIndex}
               activeShape={({ outerRadius = 0, ...props }) => (
                 <g>
@@ -138,6 +149,11 @@ export function Piechart({ data }) {
                 </g>
               )}
             >
+              {data.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={COLORS[entry.type] || "#8884d8"} />
+              ))}
+
+                   
               <Label
                 content={({ viewBox }) => {
                   if (viewBox && "cx" in viewBox && "cy" in viewBox) {

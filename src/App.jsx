@@ -40,6 +40,12 @@ function App() {
     if (currentPage === "sniffer") {
       listInterfaces();
     }
+    if (currentPage === "visualization") {
+      loadTableNames();
+    }
+    if (currentPage === "analysis") {
+      loadTableNames();
+    }
   }, [currentPage]);
 
   const startSniffer = async () => {
