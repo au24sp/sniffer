@@ -1,6 +1,9 @@
 extern crate tokio;
 use pnet::datalink::NetworkInterface;
 use pnet::datalink::{self, Channel::Ethernet};
+use pnet::packet::ip::IpNextHeaderProtocol;
+use pnet::packet::tcp::TcpPacket;
+use pnet::packet::udp::UdpPacket;
 use pnet::packet::{Packet};
 use pnet::packet::ethernet::{EthernetPacket};
 use pnet::packet::ipv4::Ipv4Packet;
@@ -12,6 +15,7 @@ use base64::encode;
 use hex::encode as hex_encode;
 use serde_json::json;
 use tauri::http::Request;
+use std::fmt::format;
 use std::sync::{Arc, Mutex, atomic::{AtomicBool, Ordering}};
 use std::thread;
 use std::thread::JoinHandle;
@@ -37,6 +41,7 @@ struct PacketData {
     payload_hex: String,
     payload_raw: Vec<u8>,
     payload_string: String,
+    // applayer: String
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -193,6 +198,8 @@ fn get_table_data(table: &str) -> Vec<PacketData> {
             payload_hex       : row.get(7).unwrap(),
             payload_raw       : row.get(8).unwrap(),
           payload_string      : row.get(9).unwrap(),
+        //   applayer            : row.get(10).unwrap()
+          
         })
     }).unwrap();
     let mut res = Vec::new();
@@ -219,6 +226,7 @@ fn _llama_data_fetcher(table: &str) -> Vec<PacketData> {
             payload_hex       : row.get(7).unwrap(),
             payload_raw       : row.get(8).unwrap(),
           payload_string      : row.get(9).unwrap(),
+        //   applayer            : row.get(10).unwrap()
         })
     }).unwrap();
     let mut res = Vec::new();
@@ -241,7 +249,8 @@ async fn handle_ollama(table: &str) -> Result<serde_json::Value, String> {
             packet.source,
             packet.destination,
             packet.protocol,
-            packet.payload_string
+            packet.payload_string,
+            // packet.applayer
         ))
         .collect::<Vec<String>>()
         .join("\n");
@@ -321,23 +330,322 @@ fn handle_ethernet_packets(packet: &EthernetPacket, conn: &Connection, table_nam
     Ok(())
 }
 
+fn get_next_level_protocol(protocol: &IpNextHeaderProtocol) -> &'static str {
+    match protocol.0 {
+        0 => "IPv6 Hop-by-Hop Option",
+        1 => "ICMP",
+        2 => "IGMP",
+        3 => "Gateway-to-Gateway",
+        4 => "IPv4 encapsulation",
+        5 => "Stream",
+        6 => "TCP",
+        7 => "CBT",
+        8 => "Exterior Gateway Protocol",
+        9 => "Interior Gateway Protocol (IGP)",
+        10 => "BBN RCC Monitoring",
+        11 => "Network Voice Protocol",
+        12 => "PUP",
+        13 => "ARGUS (deprecated)",
+        14 => "EMCON",
+        15 => "Cross Net Debugger",
+        16 => "CHAOS",
+        17 => "UDP",
+        18 => "Multiplexing",
+        19 => "DCN Measurement Subsystems",
+        20 => "Host Monitoring",
+        21 => "Packet Radio Measurement",
+        22 => "XEROX NS IDP",
+        23 => "Trunk-1",
+        24 => "Trunk-2",
+        25 => "Leaf-1",
+        26 => "Leaf-2",
+        27 => "Reliable Data Protocol",
+        28 => "Internet Reliable Transaction",
+        29 => "ISO Transport Protocol Class 4",
+        30 => "Bulk Data Transfer Protocol",
+        31 => "MFE Network Services Protocol",
+        32 => "MERIT Internodal Protocol",
+        33 => "Datagram Congestion Control Protocol",
+        34 => "Third Party Connect Protocol",
+        35 => "Inter-Domain Policy Routing Protocol",
+        36 => "XTP",
+        37 => "Datagram Delivery Protocol",
+        38 => "IDPR Control Message Transport Protocol",
+        39 => "TP++ Transport Protocol",
+        40 => "IL Transport Protocol",
+        41 => "IPv6 encapsulation",
+        42 => "Source Demand Routing Protocol",
+        43 => "Routing Header for IPv6",
+        44 => "Fragment Header for IPv6",
+        45 => "Inter-Domain Routing Protocol",
+        46 => "Reservation Protocol",
+        47 => "Generic Routing Encapsulation",
+        48 => "Dynamic Source Routing Protocol",
+        49 => "BNA",
+        50 => "Encapsulating Security Payload (ESP)",
+        51 => "Authentication Header (AH)",
+        52 => "Integrated Net Layer Security",
+        53 => "IP with Encryption (deprecated)",
+        54 => "NBMA Address Resolution Protocol",
+        55 => "Minimal IPv4 Encapsulation",
+        56 => "Transport Layer Security Protocol",
+        57 => "SKIP",
+        58 => "ICMP for IPv6",
+        59 => "No Next Header for IPv6",
+        60 => "Destination Options for IPv6",
+        61 => "Any host internal protocol",
+        62 => "CFTP",
+        63 => "Any local network",
+        64 => "SATNET and Backroom EXPAK",
+        65 => "Kryptolan",
+        66 => "MIT Remote Virtual Disk Protocol",
+        67 => "Internet Pluribus Packet Core",
+        68 => "Any distributed file system",
+        69 => "SATNET Monitoring",
+        70 => "VISA Protocol",
+        71 => "Internet Packet Core Utility",
+        72 => "Computer Protocol Network Executive",
+        73 => "Computer Protocol Heart Beat",
+        74 => "Wang Span Network",
+        75 => "Packet Video Protocol",
+        76 => "Backroom SATNET Monitoring",
+        77 => "SUN ND PROTOCOL-Temporary",
+        78 => "Wideband Monitoring",
+        79 => "Wideband EXPAK",
+        80 => "ISO Internet Protocol",
+        81 => "VMTP",
+        82 => "Secure VMTP",
+        83 => "VINES",
+        84 => "Internet Protocol Traffic Manager",
+        85 => "NSFNET-IGP",
+        86 => "Dissimilar Gateway Protocol",
+        87 => "TCF",
+        88 => "EIGRP",
+        89 => "OSPFIGP",
+        90 => "Sprite RPC Protocol",
+        91 => "Locus Address Resolution Protocol",
+        92 => "Multicast Transport Protocol",
+        93 => "AX.25 Frames",
+        94 => "IP-within-IP Encapsulation Protocol",
+        95 => "Mobile Internetworking Control Protocol (deprecated)",
+        96 => "Semaphore Communications Sec. Protocol",
+        97 => "Ethernet-within-IP Encapsulation",
+        98 => "Encapsulation Header",
+        99 => "Any private encryption scheme",
+        100 => "GMTP",
+        101 => "Ipsilon Flow Management Protocol",
+        102 => "PNNI over IP",
+        103 => "Protocol Independent Multicast",
+        104 => "ARIS",
+        105 => "SCPS",
+        106 => "QNX",
+        107 => "Active Networks",
+        108 => "IP Payload Compression Protocol",
+        109 => "Sitara Networks Protocol",
+        110 => "Compaq Peer Protocol",
+        111 => "IPX in IP",
+        112 => "Virtual Router Redundancy Protocol",
+        113 => "PGM Reliable Transport Protocol",
+        114 => "Any 0-hop protocol",
+        115 => "Layer Two Tunneling Protocol (L2TP)",
+        116 => "D-II Data Exchange",
+        117 => "Interactive Agent Transfer Protocol",
+        118 => "Schedule Transfer Protocol",
+        119 => "SpectraLink Radio Protocol",
+        120 => "UTI",
+        121 => "Simple Message Protocol",
+        122 => "Simple Multicast Protocol (deprecated)",
+        123 => "Performance Transparency Protocol",
+        124 => "ISIS over IPv4",
+        125 => "FIRE",
+        126 => "Combat Radio Transport Protocol",
+        127 => "Combat Radio User Datagram",
+        128 => "SSCOPMCE",
+        129 => "IPLT",
+        130 => "Secure Packet Shield",
+        131 => "Private IP Encapsulation within IP",
+        132 => "Stream Control Transmission Protocol (SCTP)",
+        133 => "Fibre Channel",
+        134 => "RSVP-E2E-IGNORE",
+        135 => "Mobility Header",
+        136 => "UDP Lite",
+        137 => "MPLS-in-IP",
+        138 => "MANET Protocols",
+        139 => "Host Identity Protocol",
+        140 => "Shim6 Protocol",
+        141 => "Wrapped Encapsulating Security Payload",
+        142 => "Robust Header Compression",
+        143 => "Ethernet",
+        144 => "AGGFRAG encapsulation payload for ESP",
+        145 => "Network Service Header",
+        146..=252 => "Unassigned",
+        253 => "Use for experimentation and testing",
+        254 => "Use for experimentation and testing",
+        255 => "Reserved",
+        _ => "Unknown Protocol",
+    }
+}
+
+
+fn identify_application_layer_protocol(packet: &[u8], protocol: IpNextHeaderProtocol) -> Option<&'static str> {
+    match protocol.0 {
+        6 => {  // TCP protocol
+            if let Some(tcp) = TcpPacket::new(packet) {
+                let src_port = tcp.get_source();
+                let dst_port = tcp.get_destination();
+                println!("{} {}",src_port,dst_port);
+                return identify_tcp_application(src_port, dst_port);
+            }
+        },
+        17 => {  // UDP protocol
+            if let Some(udp) = UdpPacket::new(packet) {
+                let src_port = udp.get_source();
+                let dst_port = udp.get_destination();
+                println!("{} {}",src_port,dst_port);
+                return identify_udp_application(src_port, dst_port);
+            }
+        },
+        _ => return None,
+    }
+    None
+}
+
+fn identify_tcp_application(src_port: u16, dst_port: u16) -> Option<&'static str> {
+    match dst_port {
+        0 => Some("Reserved"),
+        1 => Some("TCP Port Service Multiplexer (TCPMUX)"),
+        2 => Some("Management Utility"),
+        3 => Some("CompressNET Management Utility"),
+        5 => Some("Remote Job Entry (RJE)"),
+        7 => Some("Echo"),
+        9 => Some("Discard"),
+        11 => Some("Active Users"),
+        13 => Some("Daytime"),
+        15 => Some("Not Used"),
+        17 => Some("Quote of the Day (QOTD)"),
+        19 => Some("Chargen"),
+        20 => Some("FTP Data"),
+        21 => Some("FTP Control"),
+        22 => Some("SSH"),
+        23 => Some("Telnet"),
+        25 => Some("SMTP"),
+        37 => Some("Time"),
+        42 => Some("WINS"),
+        43 => Some("WHOIS"),
+        49 => Some("TACACS"),
+        53 => Some("DNS"),
+        67 => Some("DHCP Server"),
+        68 => Some("DHCP Client"),
+        69 => Some("TFTP"),
+        79 => Some("Finger"),
+        80 => Some("HTTP"),
+        110 => Some("POP3"),
+        119 => Some("NNTP"),
+        123 => Some("NTP"),
+        143 => Some("IMAP"),
+        161 => Some("SNMP"),
+        162 => Some("SNMP Trap"),
+        194 => Some("IRC"),
+        220 => Some("IMAP3"),
+        443 => Some("HTTPS"),
+        445 => Some("SMB"),
+        464 => Some("Kerberos Change/Set Password"),
+        514 => Some("Syslog"),
+        515 => Some("LPD"),
+        543 => Some("Klogin"),
+        544 => Some("Kshell"),
+        548 => Some("AFP"),
+        587 => Some("SMTP Secure"),
+        631 => Some("IPP"),
+        993 => Some("IMAPS"),
+        995 => Some("POP3S"),
+        2049 => Some("NFS"),
+        3306 => Some("MySQL"),
+        3389 => Some("RDP (Remote Desktop Protocol)"),
+        5432 => Some("PostgreSQL"),
+        5900 => Some("VNC"),
+        6379 => Some("Redis"),
+        6660..=6669 => Some("IRC"),
+        8080 => Some("HTTP Alternative"),
+        8443 => Some("HTTPS Alternative"),
+        8888 => Some("HTTP Alternative"),
+        9090 => Some("Web Management"),
+        10000 => Some("Webmin"),
+        _ => Some("Reserved/Unassigned"),
+    }
+}
+
+
+
+fn identify_udp_application(src_port: u16, dst_port: u16) -> Option<&'static str> {
+    match dst_port {
+        0 => Some("Reserved"),
+        53 => Some("DNS"),
+        67 => Some("DHCP Server"),
+        68 => Some("DHCP Client"),
+        69 => Some("TFTP"),
+        123 => Some("NTP"),
+        161 => Some("SNMP"),
+        162 => Some("SNMP Trap"),
+        514 => Some("Syslog"),
+        1883 => Some("MQTT"),
+        3333 => Some("Cassandra"),
+        3702 => Some("WS-Discovery"),
+        4500 => Some("IPsec NAT-T"),
+        5353 => Some("mDNS"),
+        5060 => Some("SIP"),
+        5061 => Some("SIP Secure"),
+        51413 => Some("BitTorrent"),
+        18787 => Some("AVAHI"),
+        8021 => Some("FTP-Proxy"),
+        4242 => Some("Warcraft III"),
+        28960 => Some("Call of Duty"),
+        5222 => Some("XMPP"),
+        5555 => Some("ADB (Android Debug Bridge)"),
+        6666 => Some("IRC"),
+        9119 => Some("Steam"),
+        2049 => Some("NFS"),
+        5355 => Some("LLMNR"),
+        6101 => Some("Worms Armageddon"),
+        6667 => Some("IRC"),
+        9000 => Some("Sonos"),
+        8080 => Some("HTTP Alternative"),
+        9001 => Some("Tor"),
+        1935 => Some("RTMP (Real-Time Messaging Protocol)"),
+        554 => Some("RTSP (Real-Time Streaming Protocol)"),
+        7070 => Some("Real-Time Streaming Protocol (RTSP)"),
+        5004 => Some("RTP (Real-Time Transport Protocol)"),
+        5005 => Some("RTCP (Real-Time Control Protocol)"),
+        55443 => Some("WebRTC"),
+        3434 => Some("MSN Messenger"),
+        _ => Some("Reserved/Unassigned"),
+    }
+}
+
+
+
+
 fn handle_ipv4_packets(packet: &Ipv4Packet, conn: &Connection, table_name: &str, timestamp: &str) -> Result<(), Box<dyn std::error::Error>> {
-    println!("IPv4 Packet: {} -> {}; Protocol: {:?}", packet.get_source(), packet.get_destination(), packet.get_next_level_protocol());
+    println!("IPv4 Packet: {} -> {}; Protocol: {:?}", packet.get_source(), packet.get_destination(), get_next_level_protocol(&packet.get_next_level_protocol()));
+    println!("{:?}",identify_application_layer_protocol(packet.packet(), packet.get_next_level_protocol()));
     let payload_raw = packet.payload().to_vec();
     let packet_data = PacketData {
         timestamp: timestamp.to_string(),
         packet_type: "IPv4".to_string(),
         source: packet.get_source().to_string(),
         destination: packet.get_destination().to_string(),
-        protocol: Some(format!("{:?}", packet.get_next_level_protocol())),
+        protocol: Some(format!("{:?}", get_next_level_protocol(&packet.get_next_level_protocol()))),
         payload_base64: encode(&payload_raw),
         payload_hex: hex_encode(&payload_raw),
         payload_raw: payload_raw.clone(),
         payload_string: String::from_utf8_lossy(&payload_raw).to_string(),
+        // applayer : format!("{:?}",identify_application_layer_protocol(packet.packet(), packet.get_next_level_protocol()))
     };
 
+    // println!("{:?}",packet.);
+
     let insert_query = format!(
-        "INSERT INTO {} (timestamp, packet_type, source, destination, protocol, payload_base64, payload_hex, payload_raw, payload_string) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+        "INSERT INTO {} (timestamp, packet_type, source, destination, protocol, payload_base64, payload_hex, payload_raw, payload_string) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9,)",
         table_name
     );
     conn.execute(
@@ -352,28 +660,30 @@ fn handle_ipv4_packets(packet: &Ipv4Packet, conn: &Connection, table_name: &str,
             packet_data.payload_hex,
             packet_data.payload_raw,
             packet_data.payload_string,
+            // packet_data.applayer
         ],
     )?;
     Ok(())
 }
 
 fn handle_ipv6_packets(packet: &Ipv6Packet, conn: &Connection, table_name: &str, timestamp: &str) -> Result<(), Box<dyn std::error::Error>> {
-    println!("IPv6 Packet: {} -> {}; Protocol: {:?}", packet.get_source(), packet.get_destination(), packet.get_next_header());
+    println!("IPv6 Packet: {} -> {}; Protocol: {:?}", packet.get_source(), packet.get_destination(), get_next_level_protocol(&packet.get_next_header()));
     let payload_raw = packet.payload().to_vec();
     let packet_data = PacketData {
         timestamp: timestamp.to_string(),
         packet_type: "IPv6".to_string(),
         source: packet.get_source().to_string(),
         destination: packet.get_destination().to_string(),
-        protocol: Some(format!("{:?}", packet.get_next_header())),
+        protocol: Some(format!("{:?}", get_next_level_protocol(&packet.get_next_header()))),
         payload_base64: encode(&payload_raw),
         payload_hex: hex_encode(&payload_raw),
         payload_raw: payload_raw.clone(),
         payload_string: String::from_utf8_lossy(&payload_raw).to_string(),
+        // applayer : format!("{:?}",identify_application_layer_protocol(packet.packet(), packet.get_next_header()))
     };
 
     let insert_query = format!(
-        "INSERT INTO {} (timestamp, packet_type, source, destination, protocol, payload_base64, payload_hex, payload_raw, payload_string) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+        "INSERT INTO {} (timestamp, packet_type, source, destination, protocol, payload_base64, payload_hex, payload_raw, payload_string,) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9,)",
         table_name
     );
     conn.execute(
@@ -388,6 +698,7 @@ fn handle_ipv6_packets(packet: &Ipv6Packet, conn: &Connection, table_name: &str,
             packet_data.payload_hex,
             packet_data.payload_raw,
             packet_data.payload_string,
+            // packet_data.applayer
         ],
     )?;
     Ok(())
