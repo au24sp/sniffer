@@ -16,9 +16,9 @@ import Pagination from "./components/Pagination";
 import { Bargraph } from "./components/Bargraph";
 import { Piechart } from "./components/Piechart";
 import { Lineargraph } from "./components/lineargraph";
+import { OllamaDataDisplay } from "./components/Ollamadisplay";
 import { open } from "@tauri-apps/api/dialog";
 import { join } from "@tauri-apps/api/path";
-
 
 function App() {
   const [activeComponent, setActiveComponent] = useState("bargraph");
@@ -306,7 +306,6 @@ function App() {
               </Button>
             </div>
             <div className="scale-[0.90]">
-              
               {activeComponent === "bargraph" && (
                 <Bargraph data={ipStatsData} />
               )}
@@ -316,7 +315,7 @@ function App() {
                 <Lineargraph data={timestampData} />
               )}
               <div className="mt-[10%]">
-              {console.log(ipStatsData)}
+                {console.log(ipStatsData)}
                 {activeComponent === "piechart" && (
                   <Piechart data={packetTypesData} />
                 )}
@@ -338,7 +337,6 @@ function App() {
                   <option key={name} value={name}>
                     {name}
                   </option>
-                
                 ))}
               </select>
               <button
@@ -350,8 +348,7 @@ function App() {
               </button>
 
               <div className="flex gap-7">
-                <h1>{analysisTable}</h1>
-              <pre>{JSON.stringify(ollamaData, null, 2)}</pre>
+                <OllamaDataDisplay ollamaData={ollamaData} />
               </div>
             </div>
           </div>
