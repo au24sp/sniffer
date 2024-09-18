@@ -1,31 +1,30 @@
 extern crate tokio;
-use base64::encode;
-use chrono::prelude::*;
-use hex::encode as hex_encode;
 use pnet::datalink::NetworkInterface;
 use pnet::datalink::{self, Channel::Ethernet};
-use pnet::packet::ethernet::EthernetPacket;
+use pnet::packet::{Packet};
+use pnet::packet::ethernet::{EthernetPacket};
 use pnet::packet::ipv4::Ipv4Packet;
 use pnet::packet::ipv6::Ipv6Packet;
-use pnet::packet::Packet;
-use reqwest::Client;
 use rusqlite::{params, Connection, Result};
-use serde::{Deserialize, Serialize};
+use chrono::prelude::*;
+use serde::{Serialize, Deserialize};
+use base64::encode;
+use hex::encode as hex_encode;
 use serde_json::json;
-use std::collections::HashMap;
-use std::env;
-use std::fs;
-use std::path::Path;
-use std::path::PathBuf;
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc, Mutex,
-};
+use tauri::http::Request;
+use std::sync::{Arc, Mutex, atomic::{AtomicBool, Ordering}};
 use std::thread;
 use std::thread::JoinHandle;
 use std::time::Duration;
-use tauri::http::Request;
-use tauri::{Builder, State};
+use tauri::{State, Builder};
+use reqwest::Client;
+use std::collections::HashMap;
+use std::path::Path;
+use std::fs;
+use std::env;
+use std::path::PathBuf;
+
+
 
 #[derive(Serialize, Deserialize)]
 struct PacketData {
@@ -52,9 +51,9 @@ pub struct AppState {
     pub handle: Arc<Mutex<Option<JoinHandle<()>>>>,
 }
 
-const rohith_url: &str = "/home/rohi/packet_data.db";
-const RISHI_URL: &str = "/Users/Rishikumar/packet_data.db";
-const ABHI_URL: &str = "/home/abhi/Documents/summerproj/packet_data.db";
+const rohith_url:&str = "/home/rohi/packet_data.db";
+const RISHI_URL:&str = "/Users/Rishikumar/packet_data.db";
+const ABHI_URL:&str = "/home/abhi/Documents/summerproj/packet_data.db";
 
 impl Default for AppState {
     fn default() -> Self {
@@ -67,12 +66,10 @@ impl Default for AppState {
     }
 }
 
-fn start_sniffer(app_state: Arc<AppState>, interface: String) {
+fn start_sniffer(app_state: Arc<AppState>,interface : String) {
     let interfaces = datalink::interfaces();
-    let interface_name = interface.clone();
-    let interface = interfaces
-        .iter()
-        .find(|iface| iface.name == interface_name)
+    let interface_name = interface.clone(); // Set your interface name here
+    let interface = interfaces.iter().find(|iface| iface.name == interface_name)
         .expect("Interface not found");
 
     let (_, mut rx) = match datalink::channel(&interface, Default::default()) {
@@ -84,7 +81,7 @@ fn start_sniffer(app_state: Arc<AppState>, interface: String) {
         }
     };
 
-    println!("{:?}", interface);
+    println!("{:?}",interface);
 
     let conn_arc = app_state.conn.clone();
     let db_conn = conn_arc.lock().unwrap();
@@ -108,9 +105,7 @@ fn start_sniffer(app_state: Arc<AppState>, interface: String) {
         table_name
     );
 
-    db_conn
-        .execute(&create_table_query, [])
-        .expect("Failed to create table");
+    db_conn.execute(&create_table_query, []).expect("Failed to create table");
 
     println!("Listening on the interface: {}", interface_name);
 
@@ -118,11 +113,10 @@ fn start_sniffer(app_state: Arc<AppState>, interface: String) {
         match rx.next() {
             Ok(packet) => {
                 let ether_packet = EthernetPacket::new(packet).unwrap();
-                handle_ethernet_packets(&ether_packet, &db_conn, &table_name)
-                    .expect("Failed to handle packet");
-            }
+                handle_ethernet_packets(&ether_packet, &db_conn, &table_name).expect("Failed to handle packet");
+            },
             Err(_) => {
-                thread::sleep(Duration::from_millis(100));
+                thread::sleep(Duration::from_millis(100)); // Small sleep to avoid busy-waiting
             }
         }
     }
@@ -131,16 +125,16 @@ fn start_sniffer(app_state: Arc<AppState>, interface: String) {
 }
 
 #[tauri::command]
-fn start_packet_sniffer(state: State<'_, Arc<AppState>>, interface: String) {
+fn start_packet_sniffer(state: State<'_, Arc<AppState>>,interface : String) {
     if state.running.load(Ordering::SeqCst) {
         println!("Packet sniffer is already running.");
         return;
     }
 
     state.running.store(true, Ordering::SeqCst);
-    let state_clone = state.inner().clone();
+    let state_clone = state.inner().clone(); // Use the `inner` method to get the `Arc<AppState>`
     let interface = interface.replace('"', "");
-    println!("Packet sniffer started. {}", &interface);
+    println!("Packet sniffer started. {}",&interface);
 
     let handle = thread::spawn(move || {
         start_sniffer(state_clone, interface);
@@ -148,6 +142,7 @@ fn start_packet_sniffer(state: State<'_, Arc<AppState>>, interface: String) {
 
     let mut handle_lock = state.handle.lock().unwrap();
     *handle_lock = Some(handle);
+
 }
 
 #[tauri::command]
@@ -168,12 +163,12 @@ fn stop_packet_sniffer(state: State<'_, Arc<AppState>>) {
 }
 
 #[tauri::command]
-fn list_names() -> Vec<String> {
+fn list_names()->Vec<String> {
     let con = Connection::open(rohith_url).expect("err in line 142");
-    let mut smt = con
-        .prepare("SELECT name FROM sqlite_master WHERE type='table'")
-        .expect("err in table queryiong");
-    let res_iter = smt.query_map([], |row| row.get(0)).unwrap();
+    let mut smt = con.prepare("SELECT name FROM sqlite_master WHERE type='table'").expect("err in table queryiong");
+    let res_iter = smt.query_map([], |row|{
+        row.get(0)
+    }).unwrap();
     let mut res: Vec<_> = Vec::new();
     for i in res_iter {
         res.push(i.unwrap());
@@ -184,56 +179,54 @@ fn list_names() -> Vec<String> {
 #[tauri::command]
 fn get_table_data(table: &str) -> Vec<PacketData> {
     let conn = Connection::open(rohith_url).unwrap();
-    let fromat_smt = format!("select * from {}", table);
+    let mut fromat_smt = format!("select * from {}",table);
     let mut smt = conn.prepare(&fromat_smt).unwrap();
-    let result_iter = smt
-        .query_map([], |row| {
-            Ok(PacketData {
-                // id                : row.get(0).unwrap(),
-                timestamp: row.get(1).unwrap(),
-                packet_type: row.get(2).unwrap(),
-                source: row.get(3).unwrap(),
-                destination: row.get(4).unwrap(),
-                protocol: row.get(5).unwrap(),
-                payload_base64: row.get(6).unwrap(),
-                payload_hex: row.get(7).unwrap(),
-                payload_raw: row.get(8).unwrap(),
-                payload_string: row.get(9).unwrap(),
-            })
+    let result_iter = smt.query_map([], |row|{
+        Ok(PacketData{
+            // id                : row.get(0).unwrap(),
+            timestamp         : row.get(1).unwrap(),
+            packet_type       : row.get(2).unwrap(),
+            source            : row.get(3).unwrap(),
+            destination       : row.get(4).unwrap(),
+            protocol          : row.get(5).unwrap(),
+            payload_base64    : row.get(6).unwrap(),
+            payload_hex       : row.get(7).unwrap(),
+            payload_raw       : row.get(8).unwrap(),
+          payload_string      : row.get(9).unwrap(),
         })
-        .unwrap();
+    }).unwrap();
     let mut res = Vec::new();
     for i in result_iter {
         res.push(i.unwrap());
     }
     res
+
 }
 
 fn _llama_data_fetcher(table: &str) -> Vec<PacketData> {
     let conn = Connection::open(rohith_url).unwrap();
-    let fromat_smt = format!("select * from {} LIMIT 50 OFFSET 2", table);
+    let mut fromat_smt = format!("select * from {} LIMIT 50 OFFSET 2",table);
     let mut smt = conn.prepare(&fromat_smt).unwrap();
-    let result_iter = smt
-        .query_map([], |row| {
-            Ok(PacketData {
-                // id                : row.get(0).unwrap(),
-                timestamp: row.get(1).unwrap(),
-                packet_type: row.get(2).unwrap(),
-                source: row.get(3).unwrap(),
-                destination: row.get(4).unwrap(),
-                protocol: row.get(5).unwrap(),
-                payload_base64: row.get(6).unwrap(),
-                payload_hex: row.get(7).unwrap(),
-                payload_raw: row.get(8).unwrap(),
-                payload_string: row.get(9).unwrap(),
-            })
+    let result_iter = smt.query_map([], |row|{
+        Ok(PacketData{
+            // id                : row.get(0).unwrap(),
+            timestamp         : row.get(1).unwrap(),
+            packet_type       : row.get(2).unwrap(),
+            source            : row.get(3).unwrap(),
+            destination       : row.get(4).unwrap(),
+            protocol          : row.get(5).unwrap(),
+            payload_base64    : row.get(6).unwrap(),
+            payload_hex       : row.get(7).unwrap(),
+            payload_raw       : row.get(8).unwrap(),
+          payload_string      : row.get(9).unwrap(),
         })
-        .unwrap();
+    }).unwrap();
     let mut res = Vec::new();
     for i in result_iter {
         res.push(i.unwrap());
     }
     res
+
 }
 
 #[tauri::command]
@@ -256,11 +249,10 @@ async fn handle_ollama(table: &str) -> Result<serde_json::Value, String> {
         "Analyze the Data like a senior data analyst:\n{}",
         formatted_data
     );
-
+    
     let client = Client::new();
     let api_url = "http://localhost:11434/api/generate";
-    let response = client
-        .post(api_url)
+    let response = client.post(api_url)
         .json(&json!({
             "model": "llama3.1",
             "prompt": prompt,
@@ -273,60 +265,44 @@ async fn handle_ollama(table: &str) -> Result<serde_json::Value, String> {
     let response_text = response.text().await.map_err(|e| e.to_string())?;
 
     println!("Response: {}", response_text);
-
+    // Return the response as a JSON object
     Ok(json!({
         "response": response_text
     }))
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+
+
+#[derive(Debug,Serialize,Deserialize)]
 struct NetInterface {
-    name: String,
-    mac: String,
-    ipv4: String,
+    name : String,
+    mac  : String,
+    ipv4 : String
 }
 
 #[tauri::command]
 fn list_interfacce() -> Vec<NetInterface> {
     let interface = datalink::interfaces();
-    let mut res: Vec<NetInterface> = Vec::new();
+    let mut res:Vec<NetInterface> = Vec::new();
     for _tmp_interfaces in interface.iter() {
-        let _ipv4 = _tmp_interfaces
-            .ips
-            .get(0)
-            .map(|ip| ip.ip().to_string())
-            .unwrap_or_else(|| "N/A".to_string());
-        println!(
-            "| {:<14} |  {:<3}  | {:<16} | {:<14} |",
-            _tmp_interfaces.name,
-            _tmp_interfaces.index,
-            _tmp_interfaces.mac.unwrap(),
-            _ipv4
-        );
+        let _ipv4 = _tmp_interfaces.ips.get(0).map(|ip| ip.ip().to_string()).unwrap_or_else(|| "N/A".to_string());
+        println!("| {:<14} |  {:<3}  | {:<16} | {:<14} |",_tmp_interfaces.name,_tmp_interfaces.index, _tmp_interfaces.mac.unwrap(),_ipv4 );
         let mut tmp_strt = NetInterface {
-            name: format!("{:?}", _tmp_interfaces.name),
-            mac: format!("{:?}", _tmp_interfaces.mac),
-            ipv4: _ipv4,
+            name : format!("{:?}",_tmp_interfaces.name),
+            mac  : format!("{:?}",_tmp_interfaces.mac),
+            ipv4 : _ipv4
         };
         res.push(tmp_strt);
     }
     res
 }
 
-fn handle_ethernet_packets(
-    packet: &EthernetPacket,
-    conn: &Connection,
-    table_name: &str,
-) -> Result<(), Box<dyn std::error::Error>> {
+
+fn handle_ethernet_packets(packet: &EthernetPacket, conn: &Connection, table_name: &str) -> Result<(), Box<dyn std::error::Error>> {
     let now: DateTime<Utc> = Utc::now();
     let timestamp = now.to_rfc3339();
 
-    println!(
-        "Ethernet Packet: {} -> {}; EtherType: {:?}",
-        packet.get_source(),
-        packet.get_destination(),
-        packet.get_ethertype()
-    );
+    println!("Ethernet Packet: {} -> {}; EtherType: {:?}", packet.get_source(), packet.get_destination(), packet.get_ethertype());
 
     match packet.get_ethertype() {
         pnet::packet::ethernet::EtherTypes::Ipv4 => {
@@ -345,18 +321,8 @@ fn handle_ethernet_packets(
     Ok(())
 }
 
-fn handle_ipv4_packets(
-    packet: &Ipv4Packet,
-    conn: &Connection,
-    table_name: &str,
-    timestamp: &str,
-) -> Result<(), Box<dyn std::error::Error>> {
-    println!(
-        "IPv4 Packet: {} -> {}; Protocol: {:?}",
-        packet.get_source(),
-        packet.get_destination(),
-        packet.get_next_level_protocol()
-    );
+fn handle_ipv4_packets(packet: &Ipv4Packet, conn: &Connection, table_name: &str, timestamp: &str) -> Result<(), Box<dyn std::error::Error>> {
+    println!("IPv4 Packet: {} -> {}; Protocol: {:?}", packet.get_source(), packet.get_destination(), packet.get_next_level_protocol());
     let payload_raw = packet.payload().to_vec();
     let packet_data = PacketData {
         timestamp: timestamp.to_string(),
@@ -391,18 +357,8 @@ fn handle_ipv4_packets(
     Ok(())
 }
 
-fn handle_ipv6_packets(
-    packet: &Ipv6Packet,
-    conn: &Connection,
-    table_name: &str,
-    timestamp: &str,
-) -> Result<(), Box<dyn std::error::Error>> {
-    println!(
-        "IPv6 Packet: {} -> {}; Protocol: {:?}",
-        packet.get_source(),
-        packet.get_destination(),
-        packet.get_next_header()
-    );
+fn handle_ipv6_packets(packet: &Ipv6Packet, conn: &Connection, table_name: &str, timestamp: &str) -> Result<(), Box<dyn std::error::Error>> {
+    println!("IPv6 Packet: {} -> {}; Protocol: {:?}", packet.get_source(), packet.get_destination(), packet.get_next_header());
     let payload_raw = packet.payload().to_vec();
     let packet_data = PacketData {
         timestamp: timestamp.to_string(),
@@ -438,7 +394,10 @@ fn handle_ipv6_packets(
 }
 
 fn query_ip_stats(conn: &Connection, table_name: &str) -> Result<HashMap<String, IpStats>> {
-    let mut stmt = conn.prepare(&format!("SELECT source, destination FROM {}", table_name))?;
+    let mut stmt = conn.prepare(&format!(
+        "SELECT source, destination FROM {}",
+        table_name
+    ))?;
 
     let mut ip_stats: HashMap<String, IpStats> = HashMap::new();
     let rows = stmt.query_map(params![], |row| {
@@ -448,31 +407,20 @@ fn query_ip_stats(conn: &Connection, table_name: &str) -> Result<HashMap<String,
     })?;
     for row in rows {
         let (source, destination) = row?;
-
-        ip_stats
-            .entry(source)
+        
+        ip_stats.entry(source)
             .and_modify(|stats| stats.source_count += 1)
-            .or_insert(IpStats {
-                source_count: 1,
-                destination_count: 0,
-            });
+            .or_insert(IpStats { source_count: 1, destination_count: 0 });
 
-        ip_stats
-            .entry(destination)
+        ip_stats.entry(destination)
             .and_modify(|stats| stats.destination_count += 1)
-            .or_insert(IpStats {
-                source_count: 0,
-                destination_count: 1,
-            });
+            .or_insert(IpStats { source_count: 0, destination_count: 1 });
     }
 
     Ok(ip_stats)
 }
 
-fn query_packet_per_second(
-    conn: &Connection,
-    table_name: &str,
-) -> Result<HashMap<String, u32>, rusqlite::Error> {
+fn query_packet_per_second(conn: &Connection, table_name: &str) -> Result<HashMap<String, u32>, rusqlite::Error> {
     let mut packet_count: HashMap<String, u32> = HashMap::new();
     let query = format!("SELECT timestamp FROM {}", table_name);
     let mut stmt = conn.prepare(&query)?;
@@ -517,21 +465,20 @@ fn query_packet_types(conn: &Connection, table_name: &str) -> Result<HashMap<Str
     Ok(packet_types)
 }
 
+
+
 #[tauri::command]
 fn get_ip_stats(table_name: &str) -> Result<Vec<serde_json::Value>, String> {
     let conn = Connection::open(rohith_url).map_err(|e| e.to_string())?;
     let ip_stats = query_ip_stats(&conn, table_name).map_err(|e| e.to_string())?;
 
-    let formatted_ip_stats: Vec<serde_json::Value> = ip_stats
-        .into_iter()
-        .map(|(ip, stats)| {
-            json!({
-                "IP": ip,
-                "Source": stats.source_count,
-                "Destination": stats.destination_count
-            })
+    let formatted_ip_stats: Vec<serde_json::Value> = ip_stats.into_iter().map(|(ip, stats)| {
+        json!({
+            "IP": ip,
+            "Source": stats.source_count,
+            "Destination": stats.destination_count
         })
-        .collect();
+    }).collect();
 
     Ok(formatted_ip_stats)
 }
@@ -539,22 +486,17 @@ fn get_ip_stats(table_name: &str) -> Result<Vec<serde_json::Value>, String> {
 #[tauri::command]
 fn get_packet_per_second(table_name: &str) -> Result<Vec<serde_json::Value>, String> {
     let conn = Connection::open(rohith_url).map_err(|e| e.to_string())?;
-    let packet_per_second =
-        query_packet_per_second(&conn, table_name).map_err(|e| e.to_string())?;
+    let packet_per_second = query_packet_per_second(&conn, table_name).map_err(|e| e.to_string())?;
 
-    let mut formatted_packet_per_second: Vec<(String, u32)> =
-        packet_per_second.into_iter().collect();
+    let mut formatted_packet_per_second: Vec<(String, u32)> = packet_per_second.into_iter().collect();
     formatted_packet_per_second.sort_by(|a, b| a.0.cmp(&b.0));
 
-    let formatted_packet_per_second: Vec<serde_json::Value> = formatted_packet_per_second
-        .into_iter()
-        .map(|(timestamp, count)| {
-            json!({
-                "timeStamp": timestamp,
-                "traffic": count
-            })
+    let formatted_packet_per_second: Vec<serde_json::Value> = formatted_packet_per_second.into_iter().map(|(timestamp, count)| {
+        json!({
+            "timeStamp": timestamp,
+            "traffic": count
         })
-        .collect();
+    }).collect();
 
     Ok(formatted_packet_per_second)
 }
@@ -563,36 +505,26 @@ fn get_packet_per_second(table_name: &str) -> Result<Vec<serde_json::Value>, Str
 fn get_packet_types(table_name: &str) -> Result<Vec<serde_json::Value>, String> {
     let conn = Connection::open(rohith_url).map_err(|e| e.to_string())?;
     let packet_types = query_packet_types(&conn, table_name).map_err(|e| e.to_string())?;
-
-    let formatted_packet_types: Vec<serde_json::Value> = packet_types
-        .into_iter()
-        .map(|(packet_type, count)| {
-            json!({
-                "type": packet_type,
-                "count": count
-            })
+    
+    let formatted_packet_types: Vec<serde_json::Value> = packet_types.into_iter().map(|(packet_type, count)| {
+        json!({
+            "type": packet_type,
+            "count": count
         })
-        .collect();
+    }).collect();
 
     Ok(formatted_packet_types)
 }
+
+
+
+
 
 #[tokio::main]
 async fn main() {
     Builder::default()
         .manage(Arc::new(AppState::default()))
-        .invoke_handler(tauri::generate_handler![
-            start_packet_sniffer,
-            handle_ollama,
-            stop_packet_sniffer,
-            list_names,
-            list_interfacce,
-            get_table_data,
-            get_packet_types,
-            get_packet_per_second,
-            get_ip_stats
-        ])
+        .invoke_handler(tauri::generate_handler![start_packet_sniffer, handle_ollama, stop_packet_sniffer, list_names, list_interfacce, get_table_data, get_packet_types,get_packet_per_second, get_ip_stats])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
-
