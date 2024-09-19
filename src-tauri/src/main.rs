@@ -645,7 +645,7 @@ fn handle_ipv4_packets(packet: &Ipv4Packet, conn: &Connection, table_name: &str,
     // println!("{:?}",packet.);
 
     let insert_query = format!(
-        "INSERT INTO {} (timestamp, packet_type, source, destination, protocol, payload_base64, payload_hex, payload_raw, payload_string) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9,)",
+        "INSERT INTO {} (timestamp, packet_type, source, destination, protocol, payload_base64, payload_hex, payload_raw, payload_string) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
         table_name
     );
     conn.execute(
@@ -683,7 +683,7 @@ fn handle_ipv6_packets(packet: &Ipv6Packet, conn: &Connection, table_name: &str,
     };
 
     let insert_query = format!(
-        "INSERT INTO {} (timestamp, packet_type, source, destination, protocol, payload_base64, payload_hex, payload_raw, payload_string,) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9,)",
+        "INSERT INTO {} (timestamp, packet_type, source, destination, protocol, payload_base64, payload_hex, payload_raw, payload_string) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
         table_name
     );
     conn.execute(

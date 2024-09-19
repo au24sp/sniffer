@@ -1,5 +1,6 @@
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import Markdown from 'react-markdown'
 
 export function OllamaDataDisplay({ ollamaData }) {
   // Check if ollamaData is an object and not null
@@ -26,9 +27,7 @@ if (!ollamaData || typeof ollamaData.response !== 'string') {
           <CardTitle>Response Data</CardTitle>
         </CardHeader>
         <CardContent>
-          <p>
-            <strong>Response:</strong> {responseText}
-          </p>
+          <Markdown>{responseText}</Markdown>
         </CardContent>
       </Card>
     </div>
