@@ -109,12 +109,10 @@ function App() {
       setDestIpList(ip);
       const prot = await invoke("list_protocol", { table: analysisTable });
       setProtocolList(prot);
-    }
-    catch (err)
-    {
+    } catch (err) {
       console.log(err);
     }
-  }
+  };
 
   const fetchTableData = async () => {
     if (selectedTable) {
@@ -398,14 +396,14 @@ function App() {
                 >
                   <option value="">Select Protocol</option>
                   {protocol_list.length > 0 ? (
-                  protocol_list.map((name) => (
-                    <option key={name} value={name}>
-                      {name}
-                    </option>
-                  ))
-                ) : (
-                  <option disabled>No tables available</option>
-                )}
+                    protocol_list.map((name) => (
+                      <option key={name} value={name}>
+                        {name}
+                      </option>
+                    ))
+                  ) : (
+                    <option disabled>No tables available</option>
+                  )}
                 </select>
 
                 <select
@@ -415,14 +413,14 @@ function App() {
                 >
                   <option value="">Select Source IP</option>
                   {src_ip_list.length > 0 ? (
-                  src_ip_list.map((name) => (
-                    <option key={name} value={name}>
-                      {name}
-                    </option>
-                  ))
-                ) : (
-                  <option disabled>No tables available</option>
-                )}
+                    src_ip_list.map((name) => (
+                      <option key={name} value={name}>
+                        {name}
+                      </option>
+                    ))
+                  ) : (
+                    <option disabled>No tables available</option>
+                  )}
                 </select>
 
                 <select
@@ -431,22 +429,22 @@ function App() {
                   className="w-full px-4 py-2 border rounded"
                 >
                   <option value="">Select Destination IP</option>
-                {dest_ip_list.length > 0 ? (
-                  dest_ip_list.map((name) => (
-                    <option key={name} value={name}>
-                      {name}
-                    </option>
-                  ))
-                ) : (
-                  <option disabled>No tables available</option>
-                )}
+                  {dest_ip_list.length > 0 ? (
+                    dest_ip_list.map((name) => (
+                      <option key={name} value={name}>
+                        {name}
+                      </option>
+                    ))
+                  ) : (
+                    <option disabled>No tables available</option>
+                  )}
                 </select>
               </div>
 
               <button
                 onClick={fetchOllamaDatapackets}
                 className="w-full px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition duration-300 ease-in-out transform hover:-translate-y-1"
-                disabled={!analysisTable}
+                disabled={!analysisTable || isLoading}
               >
                 Analyse
               </button>
