@@ -27,6 +27,7 @@ use std::path::Path;
 use std::fs;
 use std::env;
 use std::path::PathBuf;
+use tauri::command;
 
 
 
@@ -209,78 +210,6 @@ fn get_table_data(table: &str) -> Vec<PacketData> {
     res
 
 }
-
-fn _llama_data_fetcher(table: &str) -> Vec<PacketData> {
-    let conn = Connection::open(RISHI_URL).unwrap();
-    let mut fromat_smt = format!("select * from {} LIMIT 50 OFFSET 2",table);
-    let mut smt = conn.prepare(&fromat_smt).unwrap();
-    let result_iter = smt.query_map([], |row|{
-        Ok(PacketData{
-            // id                : row.get(0).unwrap(),
-            timestamp         : row.get(1).unwrap(),
-            packet_type       : row.get(2).unwrap(),
-            source            : row.get(3).unwrap(),
-            destination       : row.get(4).unwrap(),
-            protocol          : row.get(5).unwrap(),
-            payload_base64    : row.get(6).unwrap(),
-            payload_hex       : row.get(7).unwrap(),
-            payload_raw       : row.get(8).unwrap(),
-          payload_string      : row.get(9).unwrap(),
-        //   applayer            : row.get(10).unwrap()
-        })
-    }).unwrap();
-    let mut res = Vec::new();
-    for i in result_iter {
-        res.push(i.unwrap());
-    }
-    res
-
-}
-
-#[tauri::command]
-async fn handle_ollama(table: &str) -> Result<serde_json::Value, String> {
-    println!("table: {}", table);
-    let data = _llama_data_fetcher(table);
-    let formatted_data = data.iter()
-        .map(|packet| format!(
-            "Timestamp: {}, Packet Type: {}, Source: {}, Destination: {}, Protocol: {:?}, Payload (String): {}",
-            packet.timestamp,
-            packet.packet_type,
-            packet.source,
-            packet.destination,
-            packet.protocol,
-            packet.payload_string,
-            // packet.applayer
-        ))
-        .collect::<Vec<String>>()
-        .join("\n");
-    let prompt = format!(
-        "Analyze the Data like a senior data analyst:\n{}",
-        formatted_data
-    );
-    
-    let client = Client::new();
-    let api_url = "http://localhost:11434/api/generate";
-    let response = client.post(api_url)
-        .json(&json!({
-            "model": "llama3.1",
-            "prompt": prompt,
-            "stream": false
-        }))
-        .send()
-        .await
-        .map_err(|e| e.to_string())?;
-
-    let response_text = response.text().await.map_err(|e| e.to_string())?;
-
-    println!("Response: {}", response_text);
-    // Return the response as a JSON object
-    Ok(json!({
-        "response": response_text
-    }))
-}
-
-
 
 #[derive(Debug,Serialize,Deserialize)]
 struct NetInterface {
@@ -634,7 +563,7 @@ fn handle_ipv4_packets(packet: &Ipv4Packet, conn: &Connection, table_name: &str,
         packet_type: "IPv4".to_string(),
         source: packet.get_source().to_string(),
         destination: packet.get_destination().to_string(),
-        protocol: Some(format!("{:?}", get_next_level_protocol(&packet.get_next_level_protocol()))),
+        protocol: Some(get_next_level_protocol(&packet.get_next_level_protocol()).to_string()),
         payload_base64: encode(&payload_raw),
         payload_hex: hex_encode(&payload_raw),
         payload_raw: payload_raw.clone(),
@@ -674,7 +603,7 @@ fn handle_ipv6_packets(packet: &Ipv6Packet, conn: &Connection, table_name: &str,
         packet_type: "IPv6".to_string(),
         source: packet.get_source().to_string(),
         destination: packet.get_destination().to_string(),
-        protocol: Some(format!("{:?}", get_next_level_protocol(&packet.get_next_header()))),
+        protocol: Some(get_next_level_protocol(&packet.get_next_header()).to_string()),
         payload_base64: encode(&payload_raw),
         payload_hex: hex_encode(&payload_raw),
         payload_raw: payload_raw.clone(),
@@ -827,6 +756,264 @@ fn get_packet_types(table_name: &str) -> Result<Vec<serde_json::Value>, String> 
     Ok(formatted_packet_types)
 }
 
+fn _llama_data_fetcher(
+    table: &str,
+    protocol: Option<&str>,
+    source_ip: Option<&str>,
+    destination_ip: Option<&str>
+) -> Vec<PacketData> {
+    let conn = Connection::open(RISHI_URL).unwrap();
+    let mut query = format!("select * from {} WHERE 1=1",table);
+    // if let Some(protocol) = protocol {
+    //     query.push_str(&format!(" AND protocol = '{}'", protocol));
+    // }
+    if let Some(source_ip) = source_ip {
+        query.push_str(&format!(" AND source = '{}'", source_ip));
+    }
+    if let Some(destination_ip) = destination_ip {
+        query.push_str(&format!(" AND destination = '{}'", destination_ip));
+    }
+    let mut smt = conn.prepare(&query).unwrap();
+    let result_iter = smt.query_map([], |row|{
+        Ok(PacketData{
+            // id                : row.get(0).unwrap(),
+            timestamp         : row.get(1).unwrap(),
+            packet_type       : row.get(2).unwrap(),
+            source            : row.get(3).unwrap(),
+            destination       : row.get(4).unwrap(),
+            protocol          : row.get(5).unwrap(),
+            payload_base64    : row.get(6).unwrap(),
+            payload_hex       : row.get(7).unwrap(),
+            payload_raw       : row.get(8).unwrap(),
+          payload_string      : row.get(9).unwrap(),
+        //   applayer            : row.get(10).unwrap()
+        })
+    }).unwrap();
+    let mut res = Vec::new();
+    for i in result_iter {
+        res.push(i.unwrap());
+    }
+    res
+
+}
+
+// #[tauri::command]
+// async fn handle_ollama(table: &str) -> Result<serde_json::Value, String> {
+//     println!("table: {}", table);
+//     let data = _llama_data_fetcher(table);
+//     let formatted_data = data.iter()
+//         .map(|packet| format!(
+//             "Timestamp: {}, Packet Type: {}, Source: {}, Destination: {}, Protocol: {:?}, Payload (String): {}",
+//             packet.timestamp,
+//             packet.packet_type,
+//             packet.source,
+//             packet.destination,
+//             packet.protocol,
+//             packet.payload_string,
+//             // packet.applayer
+//         ))
+//         .collect::<Vec<String>>()
+//         .join("\n");
+//     let prompt = format!(
+//         "Analyze the Data like a senior data analyst:\n{}",
+//         formatted_data
+//     );
+    
+//     let client = Client::new();
+//     let api_url = "http://localhost:11434/api/generate";
+//     let response = client.post(api_url)
+//         .json(&json!({
+//             "model": "llama3.1",
+//             "prompt": prompt,
+//             "stream": false
+//         }))
+//         .send()
+//         .await
+//         .map_err(|e| e.to_string())?;
+
+//     let response_text = response.text().await.map_err(|e| e.to_string())?;
+
+//     println!("Response: {}", response_text);
+//     // Return the response as a JSON object
+//     Ok(json!({
+//         "response": response_text
+//     }))
+// }
+
+
+
+#[derive(Serialize)]
+struct OllamaData {
+    response: String,
+}
+
+async fn llama_data_fetcher_packets(
+    table: &str,
+    protocol: Option<&str>,
+    source_ip: Option<&str>,
+    destination_ip: Option<&str>,
+) -> Result<Vec<PacketData>, String> {
+    let conn = Connection::open(RISHI_URL).map_err(|e| e.to_string())?;
+    
+    let mut query = format!("SELECT * FROM {} WHERE 1=1", table);
+    
+    if let Some(protocol) = protocol {
+        query.push_str(&format!(" AND protocol = '{}'", protocol));
+    }
+    if let Some(source_ip) = source_ip {
+        query.push_str(&format!(" AND source = '{}'", source_ip));
+    }
+    if let Some(destination_ip) = destination_ip {
+        query.push_str(&format!(" AND destination = '{}'", destination_ip));
+    }
+    
+    query.push_str(" LIMIT 50 OFFSET 2");
+    
+    let mut stmt = conn.prepare(&query).map_err(|e| e.to_string())?;
+    let result_iter = stmt.query_map([], |row| {
+        Ok(PacketData {
+            // id                : row.get(0).unwrap(),
+            timestamp         : row.get(1).unwrap(),
+            packet_type       : row.get(2).unwrap(),
+            source            : row.get(3).unwrap(),
+            destination       : row.get(4).unwrap(),
+            protocol          : row.get(5).unwrap(),
+            payload_base64    : row.get(6).unwrap(),
+            payload_hex       : row.get(7).unwrap(),
+            payload_raw       : row.get(8).unwrap(),
+            payload_string    : row.get(9).unwrap(),
+            // applayer            : row.get(10).unwrap()
+        })
+    }).map_err(|e| e.to_string())?;
+    
+    let mut res = Vec::new();
+    for i in result_iter {
+        res.push(i.map_err(|e| e.to_string())?);
+    }
+    
+    Ok(res)
+}
+
+#[tauri::command]
+async fn list_src_ips(table: &str) -> Result<Vec<String>, String> {
+    print!("funs invoked");
+    let conn = Connection::open(RISHI_URL).map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare(&format!(
+        "SELECT DISTINCT source FROM {}",
+        table
+    )).map_err(|e| e.to_string())?;
+    
+    let result_iter = stmt.query_map([], |row| {
+        row.get(0)
+    }).map_err(|e| e.to_string())?;
+    
+    let mut res = Vec::new();
+    for i in result_iter {
+        res.push(i.map_err(|e| e.to_string())?);
+    }
+
+    println!("{:?}",res);
+    
+    Ok(res)
+}
+
+#[tauri::command]
+async fn list_dst_ips(table: &str) -> Result<Vec<String>, String> {
+    let conn = Connection::open(RISHI_URL).map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare(&format!(
+        "SELECT DISTINCT destination FROM {}",
+        table
+    )).map_err(|e| e.to_string())?;
+    
+    let result_iter = stmt.query_map([], |row| {
+        row.get(0)
+    }).map_err(|e| e.to_string())?;
+    
+    let mut res = Vec::new();
+    for i in result_iter {
+        res.push(i.map_err(|e| e.to_string())?);
+    }
+    
+    Ok(res)
+}
+
+#[tauri::command]
+async fn list_protocol(table: &str) -> Result<Vec<String>, String> {
+    let conn = Connection::open(RISHI_URL).map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare(&format!(
+        "SELECT DISTINCT protocol FROM {}",
+        table
+    )).map_err(|e| e.to_string())?;
+    
+    let result_iter = stmt.query_map([], |row| {
+        row.get(0)
+    }).map_err(|e| e.to_string())?;
+    
+    let mut res = Vec::new();
+    for i in result_iter {
+        res.push(i.map_err(|e| e.to_string())?);
+    }
+    
+    Ok(res)
+}
+
+#[tauri::command]
+async fn ollama_frontend(
+    table: String,
+    protocol: Option<String>,
+    sourceIp: String,
+    destinationIp: String,
+) -> Result<serde_json::Value, String> {
+    print!("table: {}", table);
+    let protocol_ref = protocol.as_deref();
+    // match llama_data_fetcher_packets(&table,protocol_ref, Some(&sourceIp), Some(&destinationIp)).await {
+        // Ok(data) => {
+            let data = _llama_data_fetcher(table.as_str(), protocol_ref, Some(&sourceIp), Some(&destinationIp));
+            print!("Data is received here in side the handle_ollama_packets");
+            let formatted_data = data.iter()
+                .map(|packet| format!(
+                    "Timestamp: {}, Packet Type: {}, Source: {}, Destination: {}, Protocol: {:?}, Payload (String): {}",
+                    packet.timestamp,
+                    packet.packet_type,
+                    packet.source,
+                    packet.destination,
+                    packet.protocol,
+                    packet.payload_string,
+                ))
+                .collect::<Vec<String>>()
+                .join("\n");
+            // let formatted_data = _llama_data_fetcher(&table);
+
+            let prompt = format!(
+                // "Analyze the Data like a senior data analyst:\n{}",
+                "Analyze the RAW network packets and proivde with any insights as possible like an network engineer \n{}",
+                formatted_data
+            );
+            
+            println!("{}",formatted_data);
+
+            let client = Client::new();
+            let api_url = "http://localhost:11434/api/generate";
+            let response = client.post(api_url)
+                .json(&json!({
+                    "model": "llama3.1",
+                    "prompt": prompt,
+                    "stream": false
+                }))
+                .send()
+                .await
+                .map_err(|e| e.to_string())?;
+
+            let response_text = response.text().await.map_err(|e| e.to_string())?;
+
+            println!("Response: {}", response_text);
+            // Return the response as a JSON object
+            Ok(json!({
+                "response": response_text
+            }))
+        // },
+        // Err(e) => Err(format!("Error fetching data: {}", e)),
+    }
 
 
 
@@ -835,7 +1022,7 @@ fn get_packet_types(table_name: &str) -> Result<Vec<serde_json::Value>, String> 
 async fn main() {
     Builder::default()
         .manage(Arc::new(AppState::default()))
-        .invoke_handler(tauri::generate_handler![start_packet_sniffer, handle_ollama, stop_packet_sniffer, list_names, list_interfacce, get_table_data, get_packet_types,get_packet_per_second, get_ip_stats])
+        .invoke_handler(tauri::generate_handler![start_packet_sniffer, stop_packet_sniffer, list_names,list_src_ips,list_dst_ips,list_protocol, list_interfacce, get_table_data, get_packet_types,get_packet_per_second, get_ip_stats,ollama_frontend])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

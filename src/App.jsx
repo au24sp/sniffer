@@ -17,7 +17,7 @@ import { Bargraph } from "./components/Bargraph";
 import { Piechart } from "./components/Piechart";
 import { Lineargraph } from "./components/lineargraph";
 import { OllamaDataDisplay } from "./components/Ollamadisplay";
-import { miyagi } from 'ldrs';
+import { miyagi } from "ldrs";
 import { open } from "@tauri-apps/api/dialog";
 import { join } from "@tauri-apps/api/path";
 
@@ -37,9 +37,12 @@ function App() {
   const [ollamaData, setOllamaData] = useState([]);
 
   const [isLoading, setIsLoading] = useState(false);
-  const [protocol, setProtocol] = useState('');
-  const [sourceIP, setSourceIP] = useState('');
-  const [destinationIP, setDestinationIP] = useState('');
+  const [protocol, setProtocol] = useState("");
+  const [source_ip, setSourceIP] = useState("");
+  const [destination_ip, setDestinationIP] = useState("");
+  const [src_ip_list, setSrcIpList] = useState([]);
+  const [dest_ip_list, setDestIpList] = useState([]);
+  const [protocol_list, setProtocolList] = useState([]);
 
   useEffect(() => {
     if (currentPage === "table") {
@@ -53,8 +56,9 @@ function App() {
     }
     if (currentPage === "analysis") {
       loadTableNames();
+      loadAnalysis();
     }
-  }, [currentPage]);
+  }, [currentPage, analysisTable]);
 
   const startSniffer = async () => {
     if (selectedInterface) {
@@ -97,6 +101,21 @@ function App() {
     }
   };
 
+  const loadAnalysis = async () => {
+    try {
+      const ips = await invoke("list_src_ips", { table: analysisTable });
+      setSrcIpList(ips);
+      const ip = await invoke("list_dst_ips", { table: analysisTable });
+      setDestIpList(ip);
+      const prot = await invoke("list_protocol", { table: analysisTable });
+      setProtocolList(prot);
+    }
+    catch (err)
+    {
+      console.log(err);
+    }
+  }
+
   const fetchTableData = async () => {
     if (selectedTable) {
       try {
@@ -108,11 +127,31 @@ function App() {
     }
   };
 
-  const fetchOllamaData = async () => {
+  // const fetchOllamaData = async () => {
+  //   setIsLoading(true); // Start loading
+  //   if (selectedTable) {
+  //     try {
+  //       const data = await invoke("handle_ollama", { table: analysisTable });
+  //       setOllamaData(data);
+  //       setIsLoading(false); // Stop loading once data is fetched
+  //     } catch (error) {
+  //       console.error("Error fetching table data:", error);
+  //     }
+  //   }
+  // };
+
+  const fetchOllamaDatapackets = async () => {
     setIsLoading(true); // Start loading
+    print("fetching data before if");
     if (selectedTable) {
       try {
-        const data = await invoke("handle_ollama", { table: analysisTable });
+        print("fetching data");
+        const data = await invoke("ollama_frontend", {
+          table: analysisTable,
+          protocol: protocol || "",
+          sourceIp: source_ip,
+          destinationIp: destination_ip,
+        });
         setOllamaData(data);
         setIsLoading(false); // Stop loading once data is fetched
       } catch (error) {
@@ -120,6 +159,7 @@ function App() {
       }
     }
   };
+
   const generateVisualizationData = async () => {
     if (analysisTable) {
       try {
@@ -331,79 +371,97 @@ function App() {
             </div>
           </div>
         )}
-         {currentPage === "analysis" && (
-  <div className="flex flex-col items-center justify-center ">
-    <h1 className="text-3xl font-bold mb-6">AI Analysis</h1>
-    <div className="w-full max-w-md">
-      <div className="mb-4">
-        <select
-          onChange={(e) => setAnalysisTable(e.target.value)}
-          value={analysisTable}
-          className="w-full px-4 py-2 border rounded"
-        >
-          <option value="">Select Table</option>
-          {tableNames.map((name) => (
-            <option key={name} value={name}>{name}</option>
-          ))}
-        </select>
-      </div>
+        {currentPage === "analysis" && (
+          <div className="flex flex-col items-center justify-center ">
+            <h1 className="text-3xl font-bold mb-6">AI Analysis</h1>
+            <div className="w-full max-w-md">
+              <div className="mb-4">
+                <select
+                  onChange={(e) => setAnalysisTable(e.target.value)}
+                  value={analysisTable}
+                  className="w-full px-4 py-2 border rounded"
+                >
+                  <option value="">Select Table</option>
+                  {tableNames.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-      <div className="grid gap-4 mb-4">
-  <select
-    value={protocol}
-    onChange={(e) => setProtocol(e.target.value)}
-    className="w-full px-4 py-2 border rounded"
-  >
-    <option value="">Select Protocol</option>
-    {/* Example protocol options */}
-    <option value="TCP">TCP</option>
-    <option value="UDP">UDP</option>
-    <option value="ICMP">ICMP</option>
-  </select>
+              <div className="grid gap-4 mb-4">
+                <select
+                  value={protocol}
+                  onChange={(e) => setProtocol(e.target.value)}
+                  className="w-full px-4 py-2 border rounded"
+                >
+                  <option value="">Select Protocol</option>
+                  {protocol_list.length > 0 ? (
+                  protocol_list.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))
+                ) : (
+                  <option disabled>No tables available</option>
+                )}
+                </select>
 
-  <select
-    value={sourceIP}
-    onChange={(e) => setSourceIP(e.target.value)}
-    className="w-full px-4 py-2 border rounded"
-  >
-    <option value="">Select Source IP</option>
-    {/* Example source IP options */}
-    <option value="192.168.1.1">192.168.1.1</option>
-    <option value="192.168.1.2">192.168.1.2</option>
-  </select>
+                <select
+                  value={source_ip}
+                  onChange={(e) => setSourceIP(e.target.value)}
+                  className="w-full px-4 py-2 border rounded"
+                >
+                  <option value="">Select Source IP</option>
+                  {src_ip_list.length > 0 ? (
+                  src_ip_list.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))
+                ) : (
+                  <option disabled>No tables available</option>
+                )}
+                </select>
 
-  <select
-    value={destinationIP}
-    onChange={(e) => setDestinationIP(e.target.value)}
-    className="w-full px-4 py-2 border rounded"
-  >
-    <option value="">Select Destination IP</option>
-    {/* Example destination IP options */}
-    <option value="10.0.0.1">10.0.0.1</option>
-    <option value="10.0.0.2">10.0.0.2</option>
-  </select>
-</div>
+                <select
+                  value={destination_ip}
+                  onChange={(e) => setDestinationIP(e.target.value)}
+                  className="w-full px-4 py-2 border rounded"
+                >
+                  <option value="">Select Destination IP</option>
+                {dest_ip_list.length > 0 ? (
+                  dest_ip_list.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))
+                ) : (
+                  <option disabled>No tables available</option>
+                )}
+                </select>
+              </div>
 
-      <button
-        onClick={fetchOllamaData}
-        className="w-full px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition duration-300 ease-in-out transform hover:-translate-y-1"
-        disabled={!analysisTable}
-      >
-        Analyse
-      </button>
-    </div>
-    <div className="mt-8 ">
-          {isLoading ? ( // Step 2: Show a loading animation or message
-            <div className="flex items-center justify-center ">
-              <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-blue-500"></div>
+              <button
+                onClick={fetchOllamaDatapackets}
+                className="w-full px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition duration-300 ease-in-out transform hover:-translate-y-1"
+                disabled={!analysisTable}
+              >
+                Analyse
+              </button>
             </div>
-           
-          ) : (
-            <OllamaDataDisplay ollamaData={ollamaData} />
-          )}
-        </div>
-  </div>
-)}
+            <div className="mt-8 ">
+              {isLoading ? (
+                <div className="flex items-center justify-center ">
+                  <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-blue-500"></div>
+                </div>
+              ) : (
+                <OllamaDataDisplay ollamaData={ollamaData} />
+              )}
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
