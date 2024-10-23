@@ -45,12 +45,13 @@ jobs:
           name: tauri-linux-app
           path: src-tauri/target/release/bundle
 
-      - name: Upload to GitHub Release
+      - name: Create GitHub Release
         uses: ncipollo/release-action@v1
         with:
           tag: ${{ github.ref_name }}
-          release_name: Release ${{ github.ref_name }}
-          assets: |
+          name: Release ${{ github.ref_name }}  # Release name
+          artifacts: |
             src-tauri/target/release/bundle/**/*.AppImage
             src-tauri/target/release/bundle/**/*.deb
             src-tauri/target/release/bundle/**/*.rpm
+          token: ${{ secrets.GITHUB_TOKEN }}
